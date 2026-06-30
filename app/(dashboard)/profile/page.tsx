@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import ThemeToggle from '@/components/ThemeToggle'
+import DemoResetButton from '@/components/DemoResetButton'
 
 const ROLE_LABEL: Record<string, string> = {
     owner: 'Garage Owner',
@@ -109,6 +110,14 @@ export default async function ProfilePage() {
                     </div>
                 ))}
             </div>
+
+            {/* Demo reset — owner only */}
+            {role === 'owner' && (
+                <div className="mb-4">
+                    <p className="px-1 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Developer</p>
+                    <DemoResetButton />
+                </div>
+            )}
 
             {/* Sign out */}
             <form action={async () => {
