@@ -31,10 +31,19 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const rawPhone = customer.phone.replace(/\D/g, '')
-    const phone = rawPhone.startsWith('0') ? `971${rawPhone.slice(1)}` : rawPhone
+    const phone = rawPhone.startsWith('0') ? `91${rawPhone.slice(1)}` : rawPhone.length === 10 ? `91${rawPhone}` : rawPhone
 
-    const message =
-        `Hello ${customer.name},\n\nGreat news! Your vehicle *${vehicle?.brand} ${vehicle?.model}* (${vehicle?.regNumber}) is ready for pickup at Emirates Car Care.\n\nJob No: *${job.jobNumber}*\n\nWe look forward to seeing you. Please visit us during business hours.\n\nThank you 🚗`
+    const STATUS_MSG: Record<string, string> = {
+        booked:        `Hello ${customer.name},\n\nYour appointment at Emirates Car Care has been confirmed.\n\nJob No: *${job.jobNumber}*\n\nWe look forward to seeing you! 📅`,
+        received:      `Hello ${customer.name},\n\nYour vehicle *${vehicle?.brand} ${vehicle?.model}* (${vehicle?.regNumber}) has been checked in at Emirates Car Care.\n\nJob No: *${job.jobNumber}*\n\nWe'll begin the inspection shortly. 🚗`,
+        inspection:    `Hello ${customer.name},\n\nWe're currently inspecting your vehicle *${vehicle?.brand} ${vehicle?.model}* (${vehicle?.regNumber}).\n\nJob No: *${job.jobNumber}*\n\nWe'll update you with our findings soon. 🔍`,
+        in_service:    `Hello ${customer.name},\n\nYour vehicle *${vehicle?.brand} ${vehicle?.model}* (${vehicle?.regNumber}) is now in service. Our technicians are working on it.\n\nJob No: *${job.jobNumber}*\n\nWe'll notify you once done. 🔧`,
+        quality_check: `Hello ${customer.name},\n\nYour vehicle *${vehicle?.brand} ${vehicle?.model}* (${vehicle?.regNumber}) has completed service and is undergoing final quality checks.\n\nJob No: *${job.jobNumber}* ✅`,
+        ready:         `Hello ${customer.name},\n\nGreat news! Your vehicle *${vehicle?.brand} ${vehicle?.model}* (${vehicle?.regNumber}) is ready for pickup at Emirates Car Care.\n\nJob No: *${job.jobNumber}*\n\nPlease visit us during business hours. Thank you 🎉`,
+        delivered:     `Hello ${customer.name},\n\nThank you for choosing Emirates Car Care! Your vehicle *${vehicle?.brand} ${vehicle?.model}* has been handed over.\n\nJob No: *${job.jobNumber}*\n\nWe hope to see you again! 🏁`,
+    }
+
+    const message = STATUS_MSG[job.status] ?? STATUS_MSG.ready
 
     // Try Twilio if configured
     const sid = process.env.TWILIO_ACCOUNT_SID

@@ -250,7 +250,7 @@ export default function NewJobCardPage() {
                             className={inputCls}
                         />
                     )}
-                    {field('Estimate (AED)',
+                    {field('Estimate (₹)',
                         <input
                             type="number"
                             placeholder="250"

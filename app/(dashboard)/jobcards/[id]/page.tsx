@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { useState, useRef } from 'react'
 
 const STAGES = [
-    { key: 'received',      label: 'Received',      desc: 'Vehicle checked in',         icon: '🚗' },
+    { key: 'booked',        label: 'Booked',        desc: 'Appointment confirmed',       icon: '📅' },
+    { key: 'received',      label: 'Received',      desc: 'Vehicle checked in',          icon: '🚗' },
     { key: 'inspection',    label: 'Inspection',    desc: 'Diagnosing issues',           icon: '🔍' },
     { key: 'in_service',    label: 'In Service',    desc: 'Work in progress',            icon: '🔧' },
     { key: 'quality_check', label: 'Quality Check', desc: 'Final checks done',           icon: '✅' },
@@ -297,7 +298,8 @@ function InspectionPhotos({ jobId, images, refetch }: { jobId: string; images: a
 interface LineItem { description: string; type: string; quantity: number; unitPrice: number; total: number }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function BillingSection({ jobId, job, onSaved }: { jobId: string; job: any; onSaved: () => void }) {
+function BillingSection({ jobId, job }: { jobId: string; job: any }) {
+    const router = useRouter()
     const [items, setItems] = useState<LineItem[]>(job.lineItems ?? [])
     const [labor, setLabor] = useState<number>(job.laborCharge ?? 0)
     const [discount, setDiscount] = useState<number>(job.discountAmount ?? 0)
@@ -343,7 +345,7 @@ function BillingSection({ jobId, job, onSaved }: { jobId: string; job: any; onSa
             body: JSON.stringify({ lineItems: items, laborCharge: labor, discountAmount: discount, vatPercent: vat, totalAmount: total }),
         })
         setSaving(false)
-        onSaved()
+        router.push(`/jobcards/${jobId}/invoice`)
     }
 
     const filteredCatalog = catalog.filter(c => !catSearch || c.name.toLowerCase().includes(catSearch.toLowerCase()))
@@ -414,7 +416,7 @@ function BillingSection({ jobId, job, onSaved }: { jobId: string; job: any; onSa
                     />
                     <input
                         type="number"
-                        placeholder="Unit Price (AED)"
+                        placeholder="Unit Price (₹)"
                         min={0}
                         value={newItem.unitPrice || ''}
                         onChange={e => setNewItem(p => ({ ...p, unitPrice: +e.target.value }))}
@@ -435,11 +437,11 @@ function BillingSection({ jobId, job, onSaved }: { jobId: string; job: any; onSa
             {/* Labor, discount, VAT */}
             <div className="space-y-2 border-t pt-3 mb-3" style={{ borderColor: 'var(--border-dim)' }}>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs w-28" style={{ color: 'var(--text-muted)' }}>Labor Charge (AED)</span>
+                    <span className="text-xs w-28" style={{ color: 'var(--text-muted)' }}>Labor Charge (₹)</span>
                     <input type="number" min={0} value={labor || ''} onChange={e => setLabor(+e.target.value)} placeholder="0" className={`${inputCls} flex-1`} style={inputStyle} />
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs w-28" style={{ color: 'var(--text-muted)' }}>Discount (AED)</span>
+                    <span className="text-xs w-28" style={{ color: 'var(--text-muted)' }}>Discount (₹)</span>
                     <input type="number" min={0} value={discount || ''} onChange={e => setDiscount(+e.target.value)} placeholder="0" className={`${inputCls} flex-1`} style={inputStyle} />
                 </div>
                 <div className="flex items-center gap-2">
@@ -478,7 +480,7 @@ function BillingSection({ jobId, job, onSaved }: { jobId: string; job: any; onSa
                 className="btn-gold w-full py-3 rounded-xl text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ color: '#0D0D0D' }}
             >
-                {saving ? <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" /> : 'Save Bill'}
+                {saving ? <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" /> : 'Save & View Invoice →'}
             </button>
 
             {/* Catalog modal */}
@@ -533,6 +535,8 @@ export default function JobCardDetailPage() {
     const { id } = useParams<{ id: string }>()
     const router = useRouter()
     const queryClient = useQueryClient()
+    const [stageLink, setStageLink] = useState<string | null>(null)
+    const [copied, setCopied] = useState(false)
 
     const { data: job, isLoading, refetch } = useQuery({
         queryKey: ['jobcard', id],
@@ -560,6 +564,19 @@ export default function JobCardDetailPage() {
             if (!json) return
             queryClient.setQueryData(['jobcard', id], (old: typeof job) => ({ ...old, status: json.data.status }))
             queryClient.invalidateQueries({ queryKey: ['jobcards'] })
+            // Build WhatsApp status update link for customer
+            const newStatus = json.data.status
+            const stage = STAGES.find(s => s.key === newStatus)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const cust = job.customerId as any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const veh = job.vehicleId as any
+            const rawPhone = (cust?.phone ?? '').replace(/\D/g, '')
+            const waPhone = rawPhone.startsWith('0') ? `91${rawPhone.slice(1)}` : rawPhone.length === 10 ? `91${rawPhone}` : rawPhone
+            if (waPhone && stage) {
+                const msg = `Hello ${cust?.name ?? 'Customer'}, your vehicle ${veh ? `${veh.brand} ${veh.model}` : ''} (${veh?.regNumber ?? ''}) status update:\n\n*${stage.label}* — ${stage.desc}\n\nJob No: *${job.jobNumber}*\n\n📍 Emirates Car Care, Vengara`
+                setStageLink(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`)
+            }
         },
     })
 
@@ -616,7 +633,78 @@ export default function JobCardDetailPage() {
                 <NotifyBanner jobId={id} notified={job.notificationSent} phone={customer?.phone} />
             )}
 
+            {stageLink && (
+                <div className="rounded-2xl p-4 mb-4 flex items-center justify-between gap-3" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>Send status update to customer</p>
+                        <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(74,222,128,0.65)' }}>Tap WhatsApp to notify them of the new stage</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <a
+                            href={stageLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl"
+                            style={{ background: '#22c55e', color: '#fff' }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                            </svg>
+                            WhatsApp
+                        </a>
+                        <button onClick={() => setStageLink(null)} className="w-7 h-7 flex items-center justify-center rounded-lg" style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80' }}>
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <StatusFlow current={job.status} onAdvance={() => advance()} advancing={advancing} />
+
+            {/* Customer tracking link */}
+            {job.jobNumber && (() => {
+                const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/track/${job.jobNumber}`
+                const waMsg = `Hello ${customer?.name ?? 'there'}, track your vehicle service status here:\n${trackUrl}`
+                const waPhone = (() => {
+                    const raw = (customer?.phone ?? '').replace(/\D/g, '')
+                    return raw.startsWith('0') ? `91${raw.slice(1)}` : raw.length === 10 ? `91${raw}` : raw
+                })()
+                return (
+                    <div className="rounded-2xl p-4 mb-4" style={cardStyle}>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Customer Tracking</p>
+                        <p className="text-xs mb-3 font-mono truncate" style={{ color: 'var(--text-secondary)', background: 'var(--surface-2)', padding: '8px 12px', borderRadius: 8 }}>
+                            /track/{job.jobNumber}
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(trackUrl)
+                                    setCopied(true)
+                                    setTimeout(() => setCopied(false), 2000)
+                                }}
+                                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+                                style={{ background: 'var(--surface-3)', color: copied ? '#4ade80' : 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                            >
+                                {copied ? '✓ Copied' : 'Copy Link'}
+                            </button>
+                            {waPhone && (
+                                <a
+                                    href={`https://wa.me/${waPhone}?text=${encodeURIComponent(waMsg)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-1.5"
+                                    style={{ background: '#22c55e', color: '#fff' }}
+                                >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                                    </svg>
+                                    Send to Customer
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                )
+            })()}
 
             {/* Vehicle & Customer info */}
             <div className="rounded-2xl mb-4 overflow-hidden" style={cardStyle}>
@@ -672,21 +760,21 @@ export default function JobCardDetailPage() {
             )}
 
             {/* Billing section */}
-            <BillingSection jobId={id} job={job} onSaved={() => refetch()} />
+            <BillingSection jobId={id} job={job} />
 
             {/* Dates */}
             <div className="rounded-2xl overflow-hidden mb-4" style={cardStyle}>
                 <div className="flex items-center justify-between px-4 py-3">
                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Created</span>
                     <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {new Date(job.createdAt).toLocaleString('en-AE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(job.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
                 </div>
                 {job.expectedDelivery && (
                     <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--border-dim)' }}>
                         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Expected Delivery</span>
                         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                            {new Date(job.expectedDelivery).toLocaleDateString('en-AE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {new Date(job.expectedDelivery).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                     </div>
                 )}
@@ -694,7 +782,7 @@ export default function JobCardDetailPage() {
                     <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--border-dim)' }}>
                         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Customer Notified</span>
                         <span className="text-xs text-green-400">
-                            {new Date(job.notifiedAt).toLocaleString('en-AE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            {new Date(job.notifiedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </span>
                     </div>
                 )}

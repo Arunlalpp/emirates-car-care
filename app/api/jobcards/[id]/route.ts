@@ -6,6 +6,7 @@ import Appointment from '@/lib/models/Appointment'
 import '@/lib/models/Customer'
 import '@/lib/models/Vehicle'
 import '@/lib/models/User'
+import webPush from 'web-push'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth()
@@ -24,7 +25,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ data: job })
 }
 
-const STATUS_ORDER = ['received', 'inspection', 'in_service', 'quality_check', 'ready', 'delivered']
+const STATUS_ORDER = ['booked', 'received', 'inspection', 'in_service', 'quality_check', 'ready', 'delivered']
+
+const PUSH_LABELS: Record<string, { title: string; body: string }> = {
+    booked:        { title: 'Appointment Confirmed ✅', body: 'Your appointment is confirmed at Emirates Car Care.' },
+    received:      { title: 'Vehicle Checked In 🚗',   body: 'Your vehicle has arrived and is checked in.' },
+    inspection:    { title: 'Inspection Started 🔍',   body: "We're inspecting your vehicle now. Updates coming soon." },
+    in_service:    { title: 'Work In Progress 🔧',     body: 'Our technicians are working on your vehicle.' },
+    quality_check: { title: 'Quality Check ✅',        body: 'Your vehicle is undergoing final quality checks.' },
+    ready:         { title: 'Vehicle Ready! 🎉',       body: 'Your vehicle is ready for pickup. Visit us at your convenience.' },
+    delivered:     { title: 'Job Complete 🏁',         body: 'Thank you for choosing Emirates Car Care!' },
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth()
@@ -71,5 +82,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     await job.save()
+
+    // Send push notification if customer subscribed and status changed
+    if (status && job.pushSubscription) {
+        try {
+            const label = PUSH_LABELS[status]
+            if (label && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+                webPush.setVapidDetails(
+                    process.env.VAPID_EMAIL ?? 'mailto:admin@example.com',
+                    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+                    process.env.VAPID_PRIVATE_KEY,
+                )
+                await webPush.sendNotification(
+                    job.pushSubscription,
+                    JSON.stringify({ title: label.title, body: label.body, url: `/track/${job.jobNumber}` })
+                )
+            }
+        } catch {
+            // Subscription expired or invalid — clear it silently
+            job.pushSubscription = null
+            await job.save()
+        }
+    }
+
     return NextResponse.json({ data: job })
 }

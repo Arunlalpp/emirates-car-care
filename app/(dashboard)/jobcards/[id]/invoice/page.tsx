@@ -136,7 +136,7 @@ function InvoiceBody({ job, customer, vehicle, lineItems, labor, discount, vatPc
                         <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, color: textPrimary }}>Emirates Car Care</span>
                     </div>
                     <p style={{ fontSize: 12, color: textMuted, margin: 0 }}>Professional Auto Workshop</p>
-                    <p style={{ fontSize: 12, color: textMuted, margin: '2px 0 0' }}>Dubai, UAE</p>
+                    <p style={{ fontSize: 12, color: textMuted, margin: '2px 0 0' }}>Vengara, Kerala 676304</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 28, fontWeight: 900, color: gold, margin: 0 }}>INVOICE</p>
@@ -208,8 +208,8 @@ function InvoiceBody({ job, customer, vehicle, lineItems, labor, discount, vatPc
                             <td style={{ textAlign: 'center', padding: '10px 6px', fontSize: 12, color: textMuted }}>{lineItems.length + 1}</td>
                             <td style={{ padding: '10px 6px', fontSize: 13, color: textPrimary, fontWeight: 500 }}>Labour Charge</td>
                             <td style={{ padding: '10px 6px', fontSize: 11, color: textMuted }}>labor</td>
-                            <td style={{ textAlign: 'center', padding: '10px 6px', fontSize: 12, color: textSecondary }}>1</td>
-                            <td style={{ textAlign: 'right', padding: '10px 6px', fontSize: 12, color: textSecondary }}>₹{labor.toFixed(2)}</td>
+                            <td style={{ textAlign: 'center', padding: '10px 6px', fontSize: 12, color: textMuted }}>—</td>
+                            <td style={{ textAlign: 'right', padding: '10px 6px', fontSize: 12, color: textMuted }}>—</td>
                             <td style={{ textAlign: 'right', padding: '10px 6px', fontSize: 13, fontWeight: 700, color: isPrint ? '#111' : gold }}>₹{labor.toFixed(2)}</td>
                         </tr>
                     )}
@@ -245,7 +245,7 @@ function InvoiceBody({ job, customer, vehicle, lineItems, labor, discount, vatPc
             <div style={{ borderTop: `2px solid ${gold}`, paddingTop: 18, textAlign: 'center' }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: textPrimary }}>Thank you for choosing Emirates Car Care!</p>
                 <p style={{ fontSize: 11, color: textMuted, marginTop: 4 }}>For queries, please reference job number: {job.jobNumber}</p>
-                <p style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>Emirates Car Care · Professional Auto Workshop · Dubai, UAE</p>
+                <p style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>Emirates Car Care · Professional Auto Workshop · Vengara, Kerala</p>
             </div>
         </div>
     )

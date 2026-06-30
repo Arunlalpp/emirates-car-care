@@ -29,7 +29,7 @@ const JobCardSchema = new Schema({
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
     status: {
         type: String,
-        enum: ['received', 'inspection', 'in_service', 'quality_check', 'ready', 'delivered'],
+        enum: ['booked', 'received', 'inspection', 'in_service', 'quality_check', 'ready', 'delivered'],
         default: 'received',
     },
     serviceType: String,
@@ -50,6 +50,7 @@ const JobCardSchema = new Schema({
     discountAmount: { type: Number, default: 0 },
     vatPercent: { type: Number, default: 5 },
     totalAmount: { type: Number, default: 0 },
+    pushSubscription: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true })
 
 JobCardSchema.pre('save', async function () {

@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const STAGES = [
-    { key: 'received', label: 'Received', color: 'bg-slate-100 text-slate-600' },
-    { key: 'inspection', label: 'Inspection', color: 'bg-blue-100 text-blue-700' },
-    { key: 'in_service', label: 'In Service', color: 'bg-violet-100 text-violet-700' },
-    { key: 'quality_check', label: 'QC', color: 'bg-amber-100 text-amber-700' },
-    { key: 'ready', label: 'Ready', color: 'bg-green-100 text-green-700' },
-    { key: 'delivered', label: 'Delivered', color: 'bg-slate-200 text-slate-500' },
+    { key: 'booked',        label: 'Booked',      color: 'bg-indigo-100 text-indigo-700' },
+    { key: 'received',      label: 'Received',    color: 'bg-slate-100 text-slate-600' },
+    { key: 'inspection',    label: 'Inspection',  color: 'bg-blue-100 text-blue-700' },
+    { key: 'in_service',    label: 'In Service',  color: 'bg-violet-100 text-violet-700' },
+    { key: 'quality_check', label: 'QC',          color: 'bg-amber-100 text-amber-700' },
+    { key: 'ready',         label: 'Ready',       color: 'bg-green-100 text-green-700' },
+    { key: 'delivered',     label: 'Delivered',   color: 'bg-slate-200 text-slate-500' },
 ]
 
 function stageMeta(key: string) {
