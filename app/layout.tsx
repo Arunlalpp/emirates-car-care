@@ -12,6 +12,13 @@ export const metadata: Metadata = {
     title: 'Emirates Car Care',
     description: 'Professional auto-workshop management',
     appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Emirates Car Care' },
+    icons: {
+        icon: [
+            { url: '/logo.svg', type: 'image/svg+xml' },
+            { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        ],
+        apple: '/icon-192.png',
+    },
 }
 
 export const viewport: Viewport = {

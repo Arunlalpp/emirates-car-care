@@ -2,7 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { DatePicker } from '@/components/DatePicker'
 
 const STAGES = [
     { key: 'booked',        label: 'Booked',      color: 'bg-indigo-100 text-indigo-700' },
@@ -59,12 +61,16 @@ function JobCard({ job }: { job: any }) {
     const vehicle = job.vehicleId
 
     return (
-        <Link href={`/jobcards/${job._id}`} className="block bg-white rounded-2xl border border-slate-100 p-4 shadow-sm card-lift animate-fadeInUp">
+        <Link
+            href={`/jobcards/${job._id}`}
+            className="block rounded-2xl p-4 card-lift animate-fadeInUp"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-dim)' }}
+        >
             <div className="flex items-start justify-between mb-1">
-                <div>
-                    <span className="text-xs font-mono font-bold text-slate-400">{job.jobNumber}</span>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold" style={{ color: 'var(--text-muted)' }}>{job.jobNumber}</span>
                     {job.notificationSent && (
-                        <span className="ml-2 text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full font-medium">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80' }}>
                             ✓ Notified
                         </span>
                     )}
@@ -74,24 +80,26 @@ function JobCard({ job }: { job: any }) {
                 </span>
             </div>
 
-            <p className="font-semibold text-slate-900 text-[15px]">{customer?.name ?? '—'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="font-semibold text-[15px]" style={{ color: 'var(--text-primary)' }}>{customer?.name ?? '—'}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 {vehicle?.regNumber} · {vehicle?.brand} {vehicle?.model}
             </p>
 
             {job.serviceType && (
-                <p className="text-xs text-slate-500 mt-1">{job.serviceType}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{job.serviceType}</p>
             )}
 
             <StageBar current={job.status} />
 
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
-                <span className="text-xs text-slate-400">
+            <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border-dim)' }}>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {new Date(job.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </span>
-                {job.estimatedCost && (
-                    <span className="text-xs font-semibold text-slate-700">₹{job.estimatedCost}</span>
-                )}
+                {job.totalAmount > 0 ? (
+                    <span className="text-xs font-semibold" style={{ color: '#C8A44A' }}>₹{job.totalAmount.toLocaleString('en-IN')}</span>
+                ) : job.estimatedCost ? (
+                    <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Est. ₹{job.estimatedCost}</span>
+                ) : null}
             </div>
         </Link>
     )
@@ -112,46 +120,65 @@ async function fetchJobCards(filter: string) {
     return json.data ?? []
 }
 
-export default function JobCardsPage() {
+function JobCardsInner() {
     const [filter, setFilter] = useState('')
+    const searchParams = useSearchParams()
+
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const selectedDate = searchParams.get('date') ?? todayStr
 
     const { data: jobs = [], isLoading, isFetching } = useQuery({
         queryKey: ['jobcards', filter],
         queryFn: () => fetchJobCards(filter),
     })
 
+    // Filter by createdAt date using LOCAL date to avoid UTC-day-shift (IST = UTC+5:30)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filtered = jobs.filter((job: any) => {
+        const d = new Date(job.createdAt)
+        const jobDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        return jobDate === selectedDate
+    })
+
     return (
         <div className="max-w-2xl mx-auto px-4">
             <div className="pt-12 pb-4 flex items-center justify-between">
                 <div>
-                    <p className="text-sm text-slate-400 font-medium">Service</p>
-                    <h1 className="text-2xl font-bold text-slate-900">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Service</p>
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                         Job Cards
                         {isFetching && !isLoading && (
-                            <span className="ml-2 inline-block w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin align-middle" />
+                            <span className="ml-2 inline-block w-3 h-3 border-2 border-t-[#C8A44A] rounded-full animate-spin align-middle" style={{ borderColor: 'var(--border-dim)', borderTopColor: '#C8A44A' }} />
                         )}
                     </h1>
                 </div>
                 <Link
                     href="/jobcards/new"
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
                     style={{ background: '#C8A44A' }}
                 >
-                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
                 </Link>
             </div>
 
-            {/* Filter tabs */}
+            {/* Date picker */}
+            <DatePicker />
+
+            {/* Status filter tabs */}
             <div className="flex gap-2 overflow-x-auto pb-1 mb-4 no-scrollbar">
                 {FILTER_TABS.map(tab => (
                     <button
                         key={tab.key}
                         onClick={() => setFilter(tab.key)}
-                        className={`shrink-0 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors ${filter === tab.key ? 'text-white' : 'bg-white border border-slate-100 text-slate-500'
-                            }`}
-                        style={filter === tab.key ? { background: '#C8A44A' } : {}}
+                        className="shrink-0 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors"
+                        style={
+                            filter === tab.key
+                                ? { background: '#C8A44A', color: '#0D0D0D' }
+                                : { background: 'var(--surface-1)', color: 'var(--text-secondary)', border: '1px solid var(--border-dim)' }
+                        }
                     >
                         {tab.label}
                     </button>
@@ -161,33 +188,38 @@ export default function JobCardsPage() {
             {isLoading ? (
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-white rounded-2xl border border-slate-100 p-4 animate-pulse">
-                            <div className="h-3 bg-slate-100 rounded w-24 mb-3" />
-                            <div className="h-4 bg-slate-100 rounded w-40 mb-2" />
-                            <div className="h-3 bg-slate-100 rounded w-32" />
+                        <div key={i} className="rounded-2xl p-4 animate-pulse" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-dim)' }}>
+                            <div className="h-3 rounded w-24 mb-3" style={{ background: 'var(--surface-2)' }} />
+                            <div className="h-4 rounded w-40 mb-2" style={{ background: 'var(--surface-2)' }} />
+                            <div className="h-3 rounded w-32" style={{ background: 'var(--surface-2)' }} />
                         </div>
                     ))}
                 </div>
-            ) : jobs.length === 0 ? (
+            ) : filtered.length === 0 ? (
                 <div className="text-center py-20">
-                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={1.5}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--surface-2)' }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
                             <path strokeLinecap="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
                     </div>
-                    <p className="font-semibold text-slate-800">No job cards {filter ? `with status "${filter}"` : 'yet'}</p>
-                    <p className="text-sm text-slate-400 mt-1">Create one from an appointment</p>
+                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        No job cards on this date{filter ? ` with status "${filter}"` : ''}
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Use ← → to browse other dates</p>
                     <Link
                         href="/jobcards/new"
-                        className="mt-5 inline-block text-white px-6 py-3 rounded-2xl text-sm font-semibold"
-                        style={{ background: '#C8A44A' }}
+                        className="mt-5 inline-block px-6 py-3 rounded-2xl text-sm font-semibold"
+                        style={{ background: '#C8A44A', color: '#0D0D0D' }}
                     >
                         New Job Card
                     </Link>
                 </div>
             ) : (
                 <div className="space-y-3 pb-24">
-                    {jobs.map((job: { _id: string }) => <JobCard key={job._id} job={job} />)}
+                    <p className="text-xs font-medium px-1 mb-2" style={{ color: 'var(--text-muted)' }}>
+                        {filtered.length} job card{filtered.length !== 1 ? 's' : ''}
+                    </p>
+                    {filtered.map((job: { _id: string }) => <JobCard key={job._id} job={job} />)}
                 </div>
             )}
 
@@ -201,5 +233,18 @@ export default function JobCardsPage() {
                 </svg>
             </Link>
         </div>
+    )
+}
+
+export default function JobCardsPage() {
+    return (
+        <Suspense fallback={
+            <div className="max-w-2xl mx-auto px-4 pt-12">
+                <div className="h-8 rounded w-32 mb-4 animate-pulse" style={{ background: 'var(--surface-1)' }} />
+                <div className="h-14 rounded-2xl mb-4 animate-pulse" style={{ background: 'var(--surface-1)' }} />
+            </div>
+        }>
+            <JobCardsInner />
+        </Suspense>
     )
 }

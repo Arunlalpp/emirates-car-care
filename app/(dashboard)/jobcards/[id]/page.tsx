@@ -3,16 +3,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 
 const STAGES = [
-    { key: 'booked',        label: 'Booked',        desc: 'Appointment confirmed',       icon: '📅' },
-    { key: 'received',      label: 'Received',      desc: 'Vehicle checked in',          icon: '🚗' },
-    { key: 'inspection',    label: 'Inspection',    desc: 'Diagnosing issues',           icon: '🔍' },
-    { key: 'in_service',    label: 'In Service',    desc: 'Work in progress',            icon: '🔧' },
-    { key: 'quality_check', label: 'Quality Check', desc: 'Final checks done',           icon: '✅' },
-    { key: 'ready',         label: 'Ready',         desc: 'Ready for pickup',            icon: '🎉' },
-    { key: 'delivered',     label: 'Delivered',     desc: 'Handed over to customer',     icon: '🏁' },
+    { key: 'booked', label: 'Booked', desc: 'Appointment confirmed', icon: '📅' },
+    { key: 'received', label: 'Received', desc: 'Vehicle checked in', icon: '🚗' },
+    { key: 'inspection', label: 'Inspection', desc: 'Diagnosing issues', icon: '🔍' },
+    { key: 'in_service', label: 'In Service', desc: 'Work in progress', icon: '🔧' },
+    { key: 'quality_check', label: 'Quality Check', desc: 'Final checks done', icon: '✅' },
+    { key: 'ready', label: 'Ready', desc: 'Ready for pickup', icon: '🎉' },
+    { key: 'delivered', label: 'Delivered', desc: 'Handed over to customer', icon: '🏁' },
 ]
 
 function stageIndex(key: string) { return STAGES.findIndex(s => s.key === key) }
@@ -167,125 +167,39 @@ function NotifyBanner({ jobId, notified, phone }: { jobId: string; notified: boo
     )
 }
 
-function compressImage(file: File): Promise<string> {
-    return new Promise(resolve => {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')!
-        const img = new window.Image()
-        img.onload = () => {
-            const MAX = 900
-            let { width, height } = img
-            if (width > MAX || height > MAX) {
-                if (width > height) { height = Math.round(height * MAX / width); width = MAX }
-                else { width = Math.round(width * MAX / height); height = MAX }
-            }
-            canvas.width = width; canvas.height = height
-            ctx.drawImage(img, 0, 0, width, height)
-            resolve(canvas.toDataURL('image/jpeg', 0.72))
-        }
-        img.src = URL.createObjectURL(file)
-    })
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function InspectionPhotos({ jobId, images, refetch }: { jobId: string; images: any[]; refetch: () => void }) {
-    const fileRef = useRef<HTMLInputElement>(null)
-    const [uploading, setUploading] = useState(false)
+// Read-only gallery of photos uploaded during appointment booking
+function BookingPhotos({ photos }: { photos: string[] }) {
     const [lightbox, setLightbox] = useState<string | null>(null)
 
-    async function handleFiles(files: FileList | null) {
-        if (!files?.length) return
-        setUploading(true)
-        for (const file of Array.from(files)) {
-            const dataUrl = await compressImage(file)
-            await fetch(`/api/jobcards/${jobId}/photos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dataUrl, caption: file.name.split('.')[0] }),
-            })
-        }
-        setUploading(false)
-        refetch()
-    }
-
-    async function deletePhoto(index: number) {
-        await fetch(`/api/jobcards/${jobId}/photos`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ index }),
-        })
-        refetch()
-    }
+    if (!photos.length) return null
 
     return (
         <div className="rounded-2xl p-4 mb-4" style={cardStyle}>
-            <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Inspection Photos</p>
-                <button
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
-                    className="btn-gold text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 disabled:opacity-50"
-                    style={{ color: '#0D0D0D' }}
-                >
-                    {uploading ? (
-                        <span className="w-3 h-3 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
-                    ) : (
-                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 4v16m8-8H4" /></svg>
-                    )}
-                    Add Photo
-                </button>
-                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+                Vehicle Photos
+                <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(200,164,74,0.15)', color: '#C8A44A' }}>
+                    from booking
+                </span>
+            </p>
+
+            <div className="grid grid-cols-3 gap-2">
+                {photos.map((src, i) => (
+                    <div key={i} className="relative rounded-xl overflow-hidden aspect-square" style={{ background: 'var(--surface-2)' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={src}
+                            alt={`Vehicle photo ${i + 1}`}
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => setLightbox(src)}
+                        />
+                    </div>
+                ))}
             </div>
 
-            {images.length === 0 ? (
-                <div
-                    className="rounded-xl flex flex-col items-center justify-center py-8 cursor-pointer transition-colors"
-                    style={{ border: '2px dashed var(--border-subtle)' }}
-                    onClick={() => fileRef.current?.click()}
-                >
-                    <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
-                        <path strokeLinecap="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Tap to add inspection photos</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-3 gap-2">
-                    {images.map((img, i) => (
-                        <div key={i} className="relative group rounded-xl overflow-hidden aspect-square" style={{ background: 'var(--surface-2)' }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={img.dataUrl}
-                                alt={img.caption || `Photo ${i + 1}`}
-                                className="w-full h-full object-cover cursor-pointer"
-                                onClick={() => setLightbox(img.dataUrl)}
-                            />
-                            <button
-                                onClick={() => deletePhoto(i)}
-                                className="absolute top-1 right-1 w-6 h-6 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                                <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                    ))}
-                    <button
-                        onClick={() => fileRef.current?.click()}
-                        className="aspect-square rounded-xl flex flex-col items-center justify-center transition-colors"
-                        style={{ border: '2px dashed var(--border-subtle)', color: 'var(--text-muted)' }}
-                    >
-                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M12 4v16m8-8H4" /></svg>
-                        <span className="text-[10px] mt-1">Add</span>
-                    </button>
-                </div>
-            )}
-
             {lightbox && (
-                <div
-                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-                    onClick={() => setLightbox(null)}
-                >
+                <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={lightbox} alt="Inspection photo" className="max-w-full max-h-full rounded-xl object-contain" />
+                    <img src={lightbox} alt="Vehicle photo" className="max-w-full max-h-full rounded-xl object-contain" />
                     <button className="absolute top-4 right-4 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
                         <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -538,7 +452,7 @@ export default function JobCardDetailPage() {
     const [stageLink, setStageLink] = useState<string | null>(null)
     const [copied, setCopied] = useState(false)
 
-    const { data: job, isLoading, refetch } = useQuery({
+    const { data: job, isLoading } = useQuery({
         queryKey: ['jobcard', id],
         queryFn: async () => {
             const res = await fetch(`/api/jobcards/${id}`)
@@ -663,7 +577,7 @@ export default function JobCardDetailPage() {
 
             {/* Customer tracking link */}
             {job.jobNumber && (() => {
-                const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/track/${job.jobNumber}`
+                const trackUrl = `${'https://emirates-car-care.vercel.app/'}/track/${job.jobNumber}`
                 const waMsg = `Hello ${customer?.name ?? 'there'}, track your vehicle service status here:\n${trackUrl}`
                 const waPhone = (() => {
                     const raw = (customer?.phone ?? '').replace(/\D/g, '')
@@ -750,14 +664,9 @@ export default function JobCardDetailPage() {
                 </div>
             )}
 
-            {/* Inspection photos — show at inspection stage */}
-            {(job.status === 'inspection' || (job.inspectionImages && job.inspectionImages.length > 0)) && (
-                <InspectionPhotos
-                    jobId={id}
-                    images={job.inspectionImages ?? []}
-                    refetch={refetch}
-                />
-            )}
+            {/* Read-only photos from appointment booking */}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <BookingPhotos photos={(job.appointmentId as any)?.vehiclePhotos ?? []} />
 
             {/* Billing section */}
             <BillingSection jobId={id} job={job} />

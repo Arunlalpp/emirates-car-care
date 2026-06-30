@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
+  <!-- Dark background -->
+  <rect width="192" height="192" rx="40" fill="#1E1A0E"/>
+  <!-- Gold border glow -->
+  <rect x="4" y="4" width="184" height="184" rx="37" stroke="#C8A44A" stroke-width="2" stroke-opacity="0.5"/>
+
+  <!-- Car body -->
+  <path d="M36 118H28a6 6 0 01-6-6V94a6 6 0 01.32-1.96L32 76l10-20h108l10 20 9.68 16.04A6 6 0 01170 94v18a6 6 0 01-6 6h-8" stroke="#C8A44A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Roof / cabin -->
+  <path d="M70 76l10-20h32l10 20" stroke="#C8A44A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Horizontal belt line -->
+  <line x1="22" y1="98" x2="170" y2="98" stroke="#C8A44A" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Left wheel arc -->
+  <path d="M36 118a18 18 0 0036 0" stroke="#C8A44A" stroke-width="7" stroke-linecap="round"/>
+  <!-- Right wheel arc -->
+  <path d="M120 118a18 18 0 0036 0" stroke="#C8A44A" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Left wheel centre -->
+  <circle cx="54" cy="118" r="6" fill="#C8A44A"/>
+  <!-- Right wheel centre -->
+  <circle cx="138" cy="118" r="6" fill="#C8A44A"/>
+
+  <!-- Connecting underside -->
+  <line x1="72" y1="118" x2="120" y2="118" stroke="#C8A44A" stroke-width="5" stroke-linecap="round"/>
+</svg>

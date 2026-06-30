@@ -29,18 +29,35 @@ async function getStats() {
             .limit(5)
             .lean()
 
-        return { todayAppts, totalCustomers, pendingAppts, inProgressAppts, todayList }
+        // Jobs billed today (totalAmount saved today)
+        const billedToday = await JobCard.find({ updatedAt: { $gte: today, $lt: tomorrow }, totalAmount: { $gt: 0 } })
+            .populate('customerId', 'name')
+            .populate('vehicleId', 'regNumber brand model')
+            .select('jobNumber customerId vehicleId totalAmount status')
+            .sort({ updatedAt: -1 })
+            .lean()
+
+        const todayRevenue = billedToday.reduce((sum, j) => sum + (j.totalAmount ?? 0), 0)
+
+        return { todayAppts, totalCustomers, pendingAppts, inProgressAppts, todayList, billedToday, todayRevenue }
     } catch {
-        return { todayAppts: 0, totalCustomers: 0, pendingAppts: 0, inProgressAppts: 0, todayList: [] }
+        return { todayAppts: 0, totalCustomers: 0, pendingAppts: 0, inProgressAppts: 0, todayList: [], billedToday: [], todayRevenue: 0 }
     }
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-    pending:     { bg: 'rgba(245,158,11,0.15)',  text: '#FBBF24' },
-    confirmed:   { bg: 'rgba(59,130,246,0.15)',  text: '#60A5FA' },
-    in_progress: { bg: 'rgba(139,92,246,0.15)',  text: '#A78BFA' },
-    completed:   { bg: 'rgba(34,197,94,0.15)',   text: '#4ADE80' },
-    cancelled:   { bg: 'rgba(239,68,68,0.12)',   text: '#F87171' },
+    pending:       { bg: 'rgba(245,158,11,0.15)',  text: '#FBBF24' },
+    confirmed:     { bg: 'rgba(59,130,246,0.15)',  text: '#60A5FA' },
+    in_progress:   { bg: 'rgba(139,92,246,0.15)',  text: '#A78BFA' },
+    completed:     { bg: 'rgba(34,197,94,0.15)',   text: '#4ADE80' },
+    cancelled:     { bg: 'rgba(239,68,68,0.12)',   text: '#F87171' },
+    ready:         { bg: 'rgba(34,197,94,0.15)',   text: '#4ADE80' },
+    delivered:     { bg: 'rgba(100,116,139,0.15)', text: '#94A3B8' },
+    received:      { bg: 'rgba(100,116,139,0.15)', text: '#94A3B8' },
+    inspection:    { bg: 'rgba(59,130,246,0.15)',  text: '#60A5FA' },
+    in_service:    { bg: 'rgba(139,92,246,0.15)',  text: '#A78BFA' },
+    quality_check: { bg: 'rgba(245,158,11,0.15)',  text: '#FBBF24' },
+    booked:        { bg: 'rgba(99,102,241,0.15)',  text: '#818CF8' },
 }
 
 export default async function DashboardPage() {
@@ -101,7 +118,7 @@ export default async function DashboardPage() {
             </div>
 
             {/* Stats grid */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-4">
                 {STAT_CARDS.map(card => (
                     <Link
                         key={card.label}
@@ -115,6 +132,53 @@ export default async function DashboardPage() {
                     </Link>
                 ))}
             </div>
+
+            {/* Today's Collections card */}
+            <Link
+                href="/jobcards"
+                className="block rounded-2xl p-4 mb-6 card-lift animate-fadeInUp"
+                style={{ background: 'linear-gradient(135deg, rgba(200,164,74,0.12), rgba(200,164,74,0.06))', border: '1px solid rgba(200,164,74,0.3)' }}
+            >
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(200,164,74,0.7)' }}>Today&apos;s Collections</p>
+                        <p className="text-3xl font-black" style={{ color: '#C8A44A' }}>
+                            ₹{stats.todayRevenue.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: 'rgba(200,164,74,0.6)' }}>
+                            {stats.billedToday.length} invoice{stats.billedToday.length !== 1 ? 's' : ''} billed today
+                        </p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(200,164,74,0.15)' }}>
+                        <span className="text-2xl">💰</span>
+                    </div>
+                </div>
+
+                {stats.billedToday.length > 0 && (
+                    <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid rgba(200,164,74,0.15)' }}>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {stats.billedToday.slice(0, 3).map((job: any) => {
+                            const sc = STATUS_COLORS[job.status] ?? STATUS_COLORS.delivered
+                            return (
+                                <div key={job._id.toString()} className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0" style={{ background: sc.bg, color: sc.text }}>
+                                        {job.status?.replace('_', ' ')}
+                                    </span>
+                                    <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-secondary)' }}>
+                                        {job.customerId?.name ?? '—'} · {job.vehicleId?.regNumber ?? ''}
+                                    </span>
+                                    <span className="text-xs font-bold shrink-0" style={{ color: '#C8A44A' }}>
+                                        ₹{(job.totalAmount ?? 0).toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                        {stats.billedToday.length > 3 && (
+                            <p className="text-[11px]" style={{ color: 'rgba(200,164,74,0.5)' }}>+{stats.billedToday.length - 3} more →</p>
+                        )}
+                    </div>
+                )}
+            </Link>
 
             {/* Quick Actions */}
             <div className="rounded-2xl p-4 mb-6" style={cardStyle}>

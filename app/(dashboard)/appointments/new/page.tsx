@@ -1,8 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+
+function compressImage(file: File): Promise<string> {
+    return new Promise(resolve => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')!
+        const img = new window.Image()
+        img.onload = () => {
+            const MAX = 900
+            let { width, height } = img
+            if (width > MAX || height > MAX) {
+                if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+                else { width = Math.round(width * MAX / height); height = MAX }
+            }
+            canvas.width = width; canvas.height = height
+            ctx.drawImage(img, 0, 0, width, height)
+            resolve(canvas.toDataURL('image/jpeg', 0.72))
+        }
+        img.src = URL.createObjectURL(file)
+    })
+}
 
 const SERVICE_TYPES = [
     'Oil & Filter Change', 'Tyre Replacement', 'Brake Service', 'Battery Replacement',
@@ -55,6 +75,10 @@ export default function NewAppointmentPage() {
     const [customerSearch, setCustomerSearch] = useState('')
     const [customers, setCustomers] = useState<Customer[]>([])
     const [vehicles, setVehicles] = useState<Vehicle[]>([])
+    const [vehiclePhotos, setVehiclePhotos] = useState<string[]>([])
+    const [photoUploading, setPhotoUploading] = useState(false)
+    const cameraRef = useRef<HTMLInputElement>(null)
+    const libraryRef = useRef<HTMLInputElement>(null)
 
     const today = new Date()
     const [calStart] = useState(today)
@@ -129,6 +153,7 @@ export default function NewAppointmentPage() {
                     complaints: allComplaints,
                     notes: form.notes,
                     estimatedDuration: form.estimatedDuration,
+                    vehiclePhotos,
                 }),
             })
             if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Failed'); setLoading(false); return }
@@ -139,8 +164,16 @@ export default function NewAppointmentPage() {
         }
     }
 
-    const STEP_LABELS = ['Customer', 'Vehicle', 'Date & Time', 'Service', 'Complaints']
-    const totalSteps = 5
+    async function handlePhotoFiles(files: FileList | null) {
+        if (!files?.length) return
+        setPhotoUploading(true)
+        const compressed = await Promise.all(Array.from(files).map(compressImage))
+        setVehiclePhotos(prev => [...prev, ...compressed])
+        setPhotoUploading(false)
+    }
+
+    const STEP_LABELS = ['Customer', 'Vehicle', 'Date & Time', 'Service', 'Complaints', 'Vehicle Photos']
+    const totalSteps = 6
 
     const cardStyle = { background: 'var(--surface-1)', border: '1px solid var(--border-dim)' }
 
@@ -496,6 +529,70 @@ export default function NewAppointmentPage() {
                                         <span key={c} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(200,164,74,0.15)', color: '#C8A44A' }}>{c}</span>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => { setError(''); setStep(6) }}
+                        className="btn-gold w-full py-4 rounded-2xl text-sm font-bold tracking-wide"
+                        style={{ color: '#0D0D0D' }}
+                    >
+                        Next: Vehicle Photos
+                    </button>
+                </div>
+            )}
+
+            {/* Step 6: Vehicle Photos + Confirm */}
+            {step === 6 && (
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                            Vehicle Condition Photos
+                        </label>
+                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Capture current vehicle damage or condition (optional)</p>
+
+                        {/* Camera / Library buttons */}
+                        <div className="flex gap-2 mb-3">
+                            <button
+                                onClick={() => cameraRef.current?.click()}
+                                disabled={photoUploading}
+                                className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+                            >
+                                📷 Take Photo
+                            </button>
+                            <button
+                                onClick={() => libraryRef.current?.click()}
+                                disabled={photoUploading}
+                                className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+                            >
+                                {photoUploading ? <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> : '🖼️'} Library
+                            </button>
+                        </div>
+                        <input ref={cameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handlePhotoFiles(e.target.files)} />
+                        <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handlePhotoFiles(e.target.files)} />
+
+                        {vehiclePhotos.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-2">
+                                {vehiclePhotos.map((src, i) => (
+                                    <div key={i} className="relative rounded-xl overflow-hidden aspect-square" style={{ background: 'var(--surface-2)' }}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={src} alt={`Vehicle photo ${i + 1}`} className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => setVehiclePhotos(p => p.filter((_, idx) => idx !== i))}
+                                            className="absolute top-1 right-1 w-6 h-6 bg-black/70 rounded-full flex items-center justify-center"
+                                        >
+                                            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-xl py-6 flex flex-col items-center justify-center" style={{ border: '2px dashed var(--border-subtle)' }}>
+                                <span className="text-3xl mb-2">📸</span>
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No photos yet — optional</p>
                             </div>
                         )}
                     </div>

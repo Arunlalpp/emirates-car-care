@@ -19,6 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         .populate('customerId', 'name phone email')
         .populate('vehicleId', 'regNumber brand model year fuelType color')
         .populate('assignedTo', 'name')
+        .populate('appointmentId', 'vehiclePhotos')
         .lean()
 
     if (!job) return NextResponse.json({ error: 'Not found' }, { status: 404 })

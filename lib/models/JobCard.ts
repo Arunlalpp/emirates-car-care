@@ -53,6 +53,10 @@ const JobCardSchema = new Schema({
     pushSubscription: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true })
 
+JobCardSchema.index({ status: 1 })
+JobCardSchema.index({ customerId: 1 })
+JobCardSchema.index({ jobNumber: 1 })
+
 JobCardSchema.pre('save', async function () {
     if (!this.jobNumber) {
         const year = new Date().getFullYear()

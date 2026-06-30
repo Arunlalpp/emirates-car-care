@@ -13,6 +13,7 @@ export interface IAppointment extends Document {
     notes?: string
     complaints?: string[]
     estimatedDuration?: number
+    vehiclePhotos?: string[]
     createdAt: Date
     updatedAt: Date
 }
@@ -32,6 +33,7 @@ const AppointmentSchema = new Schema<IAppointment>({
     notes: { type: String },
     complaints: [{ type: String }],
     estimatedDuration: { type: Number, default: 60 },
+    vehiclePhotos: [{ type: String }],
 }, { timestamps: true })
 
 export default mongoose.models.Appointment as mongoose.Model<IAppointment> || mongoose.model<IAppointment>('Appointment', AppointmentSchema)
