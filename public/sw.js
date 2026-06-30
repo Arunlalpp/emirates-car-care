@@ -1,4 +1,4 @@
-const CACHE_NAME = 'garage-os-v2'
+const CACHE_NAME = 'garage-os-v3'
 
 self.addEventListener('install', () => self.skipWaiting())
 
