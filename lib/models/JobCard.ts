@@ -21,12 +21,20 @@ const LineItemSchema = new Schema({
     total: { type: Number, default: 0 },
 }, { _id: false })
 
+const StaffAssignmentSchema = new Schema({
+    role: { type: String, enum: ['mechanic', 'painter', 'patch_worker'], required: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    name: { type: String, required: true },
+}, { _id: false })
+
 const JobCardSchema = new Schema({
     jobNumber: { type: String, unique: true },
     appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
     vehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle', required: true },
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
+    serviceDate: { type: Date, index: true },
+    staffAssignments: [StaffAssignmentSchema],
     status: {
         type: String,
         enum: ['booked', 'received', 'inspection', 'in_service', 'quality_check', 'ready', 'delivered'],

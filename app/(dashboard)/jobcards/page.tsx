@@ -133,10 +133,11 @@ function JobCardsInner() {
         queryFn: () => fetchJobCards(filter),
     })
 
-    // Filter by createdAt date using LOCAL date to avoid UTC-day-shift (IST = UTC+5:30)
+    // Filter by serviceDate (appointment's scheduled date) falling back to createdAt for old records
+    // Uses LOCAL date methods to avoid UTC-day-shift (IST = UTC+5:30)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filtered = jobs.filter((job: any) => {
-        const d = new Date(job.createdAt)
+        const d = new Date(job.serviceDate ?? job.createdAt)
         const jobDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
         return jobDate === selectedDate
     })

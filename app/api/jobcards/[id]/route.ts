@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await connectDB()
 
     const body = await req.json()
-    const { status, technicianNotes, finalCost, note, lineItems, laborCharge, discountAmount, vatPercent, totalAmount } = body
+    const { status, technicianNotes, finalCost, note, lineItems, laborCharge, discountAmount, vatPercent, totalAmount, staffAssignments } = body
 
     const job = await JobCard.findById(id)
     if (!job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -71,6 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (technicianNotes !== undefined) job.technicianNotes = technicianNotes
     if (finalCost !== undefined) job.finalCost = finalCost
+    if (staffAssignments !== undefined) job.staffAssignments = staffAssignments
 
     // Billing fields
     if (lineItems !== undefined) job.lineItems = lineItems

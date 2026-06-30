@@ -38,9 +38,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Customer and vehicle are required' }, { status: 400 })
     }
 
+    // Use the appointment's scheduled date as serviceDate so filtering by date works correctly
+    // even if the job card is created days before the actual service
+    let serviceDate: Date = new Date()
+    if (appointmentId) {
+        const appt = await Appointment.findById(appointmentId).select('date').lean()
+        if (appt?.date) serviceDate = new Date(appt.date)
+    }
+
     const job = new JobCard({
         customerId, vehicleId, appointmentId, serviceType, customerComplaint,
         odometerIn, estimatedCost, expectedDelivery, assignedTo,
+        serviceDate,
         statusHistory: [{ status: 'received', changedBy: session.user?.id, note: 'Job card created' }],
     })
     await job.save()

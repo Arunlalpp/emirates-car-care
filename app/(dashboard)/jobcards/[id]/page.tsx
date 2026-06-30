@@ -209,6 +209,158 @@ function BookingPhotos({ photos }: { photos: string[] }) {
     )
 }
 
+const ROLES = [
+    { key: 'mechanic',     label: 'Mechanic',      icon: '🔧' },
+    { key: 'painter',      label: 'Painter',        icon: '🎨' },
+    { key: 'patch_worker', label: 'Patch Worker',   icon: '🛠️' },
+]
+
+interface StaffEntry { role: string; userId: string; name: string }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function StaffAssignment({ jobId, initial }: { jobId: string; initial: StaffEntry[] }) {
+    const [assignments, setAssignments] = useState<StaffEntry[]>(initial)
+    const [sheetOpen, setSheetOpen] = useState(false)
+    const [role, setRole] = useState('mechanic')
+    const [userId, setUserId] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [users, setUsers] = useState<{ _id: string; name: string; role: string }[]>([])
+
+    async function openSheet() {
+        if (!users.length) {
+            const res = await fetch('/api/users')
+            if (res.ok) { const j = await res.json(); setUsers(j.data ?? []) }
+        }
+        setRole('mechanic')
+        setUserId('')
+        setSheetOpen(true)
+    }
+
+    async function addAssignment() {
+        const user = users.find(u => u._id === userId)
+        if (!user) return
+        const next = [...assignments, { role, userId, name: user.name }]
+        setSaving(true)
+        await fetch(`/api/jobcards/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staffAssignments: next }),
+        })
+        setAssignments(next)
+        setSaving(false)
+        setSheetOpen(false)
+    }
+
+    async function remove(idx: number) {
+        const next = assignments.filter((_, i) => i !== idx)
+        await fetch(`/api/jobcards/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staffAssignments: next }),
+        })
+        setAssignments(next)
+    }
+
+    const roleMeta = (key: string) => ROLES.find(r => r.key === key) ?? ROLES[0]
+
+    return (
+        <div className="rounded-2xl p-4 mb-4" style={cardStyle}>
+            <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Assigned Team</p>
+                <button
+                    onClick={openSheet}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1"
+                    style={{ background: 'rgba(200,164,74,0.1)', color: '#C8A44A', border: '1px solid rgba(200,164,74,0.25)' }}
+                >
+                    + Assign
+                </button>
+            </div>
+
+            {assignments.length === 0 ? (
+                <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>No staff assigned yet</p>
+            ) : (
+                <div className="space-y-2">
+                    {assignments.map((a, i) => {
+                        const meta = roleMeta(a.role)
+                        return (
+                            <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2.5" style={{ background: 'var(--surface-2)' }}>
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-lg">{meta.icon}</span>
+                                    <div>
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{a.name}</p>
+                                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{meta.label}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => remove(i)} className="w-7 h-7 flex items-center justify-center rounded-lg" style={{ background: 'rgba(239,68,68,0.1)' }}>
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#EF4444" strokeWidth={2.5}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+
+            {sheetOpen && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-end" onClick={() => setSheetOpen(false)}>
+                    <div
+                        className="w-full rounded-t-3xl p-5"
+                        style={{ background: 'var(--surface-1)' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>Assign Staff</p>
+                            <button onClick={() => setSheetOpen(false)}>
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Role picker */}
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Role</p>
+                        <div className="flex gap-2 mb-4">
+                            {ROLES.map(r => (
+                                <button
+                                    key={r.key}
+                                    onClick={() => setRole(r.key)}
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+                                    style={role === r.key
+                                        ? { background: '#C8A44A', color: '#0D0D0D' }
+                                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-dim)' }
+                                    }
+                                >
+                                    {r.icon} {r.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Staff picker */}
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Staff Member</p>
+                        <select
+                            value={userId}
+                            onChange={e => setUserId(e.target.value)}
+                            className={inputCls}
+                            style={inputStyle}
+                        >
+                            <option value="">— Select person —</option>
+                            {users.map(u => (
+                                <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
+                            ))}
+                        </select>
+
+                        <button
+                            onClick={addAssignment}
+                            disabled={!userId || saving}
+                            className="btn-gold w-full py-3.5 rounded-xl text-sm font-bold mt-4 disabled:opacity-40 flex items-center justify-center gap-2"
+                            style={{ color: '#0D0D0D' }}
+                        >
+                            {saving ? <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" /> : 'Confirm Assignment'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
 interface LineItem { description: string; type: string; quantity: number; unitPrice: number; total: number }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -667,6 +819,9 @@ export default function JobCardDetailPage() {
             {/* Read-only photos from appointment booking */}
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <BookingPhotos photos={(job.appointmentId as any)?.vehiclePhotos ?? []} />
+
+            {/* Team assignment */}
+            <StaffAssignment jobId={id} initial={job.staffAssignments ?? []} />
 
             {/* Billing section */}
             <BillingSection jobId={id} job={job} />

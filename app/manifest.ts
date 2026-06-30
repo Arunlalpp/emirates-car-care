@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'Emirates Car Care',
-        short_name: 'ECC',
+        short_name: 'Emirates CC',
         description: 'Professional auto-workshop management',
         start_url: '/',
         display: 'standalone',
