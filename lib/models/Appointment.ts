@@ -11,6 +11,7 @@ export interface IAppointment extends Document {
     timeSlot: string
     status: AppointmentStatus
     notes?: string
+    complaints?: string[]
     estimatedDuration?: number
     createdAt: Date
     updatedAt: Date
@@ -29,6 +30,7 @@ const AppointmentSchema = new Schema<IAppointment>({
         default: 'pending',
     },
     notes: { type: String },
+    complaints: [{ type: String }],
     estimatedDuration: { type: Number, default: 60 },
 }, { timestamps: true })
 

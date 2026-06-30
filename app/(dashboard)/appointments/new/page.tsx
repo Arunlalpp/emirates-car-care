@@ -5,18 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 const SERVICE_TYPES = [
-    'Oil & Filter Change',
-    'Tyre Replacement',
-    'Brake Service',
-    'Battery Replacement',
-    'AC Service',
-    'General Service',
-    'Wheel Alignment',
-    'Clutch Repair',
-    'Engine Repair',
-    'Electrical Work',
-    'Denting & Painting',
-    'Insurance Repair',
+    'Oil & Filter Change', 'Tyre Replacement', 'Brake Service', 'Battery Replacement',
+    'AC Service', 'General Service', 'Wheel Alignment', 'Clutch Repair',
+    'Engine Repair', 'Electrical Work', 'Denting & Painting', 'Insurance Repair',
+]
+
+const COMPLAINT_CHIPS = [
+    'Engine noise / knocking', 'Engine overheating', 'AC not cooling',
+    'Brake vibration / noise', 'Steering issue', 'Oil leak',
+    'Battery dead / weak', 'Check engine light', 'Tyre pressure warning',
+    'Suspension noise', 'Electrical fault', 'Transmission issue',
+    'Fuel smell', 'Windscreen damage', 'Body dent / scratch',
 ]
 
 const TIME_SLOTS = [
@@ -33,7 +32,7 @@ interface Vehicle { _id: string; regNumber: string; brand: string; model: string
 function getWeekDays(startDate: Date) {
     const days = []
     const start = new Date(startDate)
-    start.setDate(start.getDate() - start.getDay() + 1) // Monday
+    start.setDate(start.getDate() - start.getDay() + 1)
     for (let i = 0; i < 14; i++) {
         const d = new Date(start)
         d.setDate(start.getDate() + i)
@@ -41,6 +40,9 @@ function getWeekDays(startDate: Date) {
     }
     return days
 }
+
+const inputCls = 'w-full border rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#C8A44A] focus:ring-1 focus:ring-[#C8A44A]/30 transition-colors'
+const inputStyle = { background: 'var(--surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }
 
 export default function NewAppointmentPage() {
     const router = useRouter()
@@ -66,22 +68,20 @@ export default function NewAppointmentPage() {
         date: today.toISOString().split('T')[0],
         timeSlot: '',
         serviceType: '',
+        complaints: [] as string[],
+        customComplaint: '',
         notes: '',
         estimatedDuration: 60,
     })
 
-    // Load pre-selected customer name
     useEffect(() => {
         if (!preCustomerId) return
         fetch(`/api/customers/${preCustomerId}`)
             .then(r => r.json())
-            .then(j => {
-                if (j.data) setForm(f => ({ ...f, customerName: j.data.name }))
-            })
+            .then(j => { if (j.data) setForm(f => ({ ...f, customerName: j.data.name })) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // Search customers
     useEffect(() => {
         if (customerSearch.length < 2) { setCustomers([]); return }
         const t = setTimeout(async () => {
@@ -91,13 +91,21 @@ export default function NewAppointmentPage() {
         return () => clearTimeout(t)
     }, [customerSearch])
 
-    // Load vehicles when customer selected
     useEffect(() => {
         if (!form.customerId) return
         fetch(`/api/vehicles?customerId=${form.customerId}`)
             .then(r => r.json())
             .then(j => setVehicles(j.data ?? []))
     }, [form.customerId])
+
+    function toggleComplaint(c: string) {
+        setForm(f => ({
+            ...f,
+            complaints: f.complaints.includes(c)
+                ? f.complaints.filter(x => x !== c)
+                : [...f.complaints, c],
+        }))
+    }
 
     async function handleSubmit() {
         if (!form.customerId || !form.vehicleId || !form.date || !form.timeSlot || !form.serviceType) {
@@ -106,6 +114,8 @@ export default function NewAppointmentPage() {
         }
         setLoading(true)
         setError('')
+        const allComplaints = [...form.complaints]
+        if (form.customComplaint.trim()) allComplaints.push(form.customComplaint.trim())
         try {
             const res = await fetch('/api/appointments', {
                 method: 'POST',
@@ -116,6 +126,7 @@ export default function NewAppointmentPage() {
                     date: form.date,
                     timeSlot: form.timeSlot,
                     serviceType: form.serviceType,
+                    complaints: allComplaints,
                     notes: form.notes,
                     estimatedDuration: form.estimatedDuration,
                 }),
@@ -128,35 +139,43 @@ export default function NewAppointmentPage() {
         }
     }
 
-    const STEP_LABELS = ['Customer', 'Vehicle', 'Date & Time', 'Service']
+    const STEP_LABELS = ['Customer', 'Vehicle', 'Date & Time', 'Service', 'Complaints']
+    const totalSteps = 5
+
+    const cardStyle = { background: 'var(--surface-1)', border: '1px solid var(--border-dim)' }
 
     return (
-        <div className="max-w-lg mx-auto px-4">
+        <div className="max-w-lg mx-auto px-4 pb-10">
             {/* Header */}
             <div className="pt-12 pb-6 flex items-center gap-3">
                 <button
                     onClick={() => step > 1 ? setStep(step - 1) : router.back()}
-                    className="w-9 h-9 bg-white rounded-xl border border-slate-100 flex items-center justify-center"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={cardStyle}
                 >
                     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
                 <div>
-                    <h1 className="text-lg font-bold text-slate-900">New Appointment</h1>
-                    <p className="text-xs text-slate-400">Step {step} of 4 — {STEP_LABELS[step - 1]}</p>
+                    <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>New Appointment</h1>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}</p>
                 </div>
             </div>
 
             {/* Progress bar */}
             <div className="flex gap-1.5 mb-6">
-                {[1, 2, 3, 4].map(s => (
-                    <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${s <= step ? 'bg-slate-900' : 'bg-slate-200'}`} />
+                {Array.from({ length: totalSteps }, (_, i) => (
+                    <div
+                        key={i}
+                        className="h-1 flex-1 rounded-full transition-colors"
+                        style={{ background: i < step ? '#C8A44A' : 'var(--surface-3)' }}
+                    />
                 ))}
             </div>
 
             {error && (
-                <div className="bg-red-50 border border-red-100 text-red-600 text-xs rounded-xl px-4 py-3 mb-4">
+                <div className="text-red-400 text-xs rounded-xl px-4 py-3 mb-4" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
                     {error}
                 </div>
             )}
@@ -164,28 +183,27 @@ export default function NewAppointmentPage() {
             {/* Step 1: Customer */}
             {step === 1 && (
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                            Search Customer
-                        </label>
-                        <input
-                            autoFocus
-                            placeholder="Name or phone number..."
-                            value={customerSearch}
-                            onChange={e => setCustomerSearch(e.target.value)}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3.5 text-sm placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                        />
-                    </div>
+                    <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                        Search Customer
+                    </label>
+                    <input
+                        autoFocus
+                        placeholder="Name or phone number..."
+                        value={customerSearch}
+                        onChange={e => setCustomerSearch(e.target.value)}
+                        className={inputCls}
+                        style={inputStyle}
+                    />
 
                     {form.customerId && (
-                        <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                        <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
                             <div>
-                                <p className="text-sm font-semibold text-green-800">{form.customerName}</p>
+                                <p className="text-sm font-semibold text-green-400">{form.customerName}</p>
                                 <p className="text-xs text-green-600">Customer selected</p>
                             </div>
                             <button
                                 onClick={() => { setForm({ ...form, customerId: '', customerName: '', vehicleId: '', vehicleLabel: '' }); setCustomerSearch('') }}
-                                className="text-xs text-green-600 underline"
+                                className="text-xs text-green-500 underline"
                             >
                                 Change
                             </button>
@@ -193,7 +211,7 @@ export default function NewAppointmentPage() {
                     )}
 
                     {customers.length > 0 && !form.customerId && (
-                        <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+                        <div className="rounded-xl overflow-hidden" style={cardStyle}>
                             {customers.map((c, i) => (
                                 <button
                                     key={c._id}
@@ -202,14 +220,15 @@ export default function NewAppointmentPage() {
                                         setCustomers([])
                                         setCustomerSearch(c.name)
                                     }}
-                                    className={`w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 ${i > 0 ? 'border-t border-slate-50' : ''}`}
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors"
+                                    style={{ borderTop: i > 0 ? '1px solid var(--border-dim)' : 'none' }}
                                 >
-                                    <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                                        <span className="text-sm font-bold text-slate-600">{c.name[0]}</span>
+                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--surface-3)' }}>
+                                        <span className="text-sm font-bold" style={{ color: '#C8A44A' }}>{c.name[0]}</span>
                                     </div>
                                     <div>
-                                        <p className="text-sm font-semibold text-slate-900">{c.name}</p>
-                                        <p className="text-xs text-slate-400">{c.phone}</p>
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.phone}</p>
                                     </div>
                                 </button>
                             ))}
@@ -218,8 +237,8 @@ export default function NewAppointmentPage() {
 
                     {customerSearch.length >= 2 && customers.length === 0 && !form.customerId && (
                         <div className="text-center py-8">
-                            <p className="text-sm text-slate-500">No customer found</p>
-                            <Link href="/customers/new" className="text-sm text-slate-900 font-medium underline mt-1 inline-block">
+                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No customer found</p>
+                            <Link href="/customers/new" className="text-sm font-medium underline mt-1 inline-block" style={{ color: '#C8A44A' }}>
                                 Add new customer →
                             </Link>
                         </div>
@@ -228,7 +247,8 @@ export default function NewAppointmentPage() {
                     <button
                         onClick={() => { setError(''); setStep(2) }}
                         disabled={!form.customerId}
-                        className="w-full bg-slate-900 text-white py-4 rounded-2xl text-sm font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
+                        className="btn-gold w-full py-4 rounded-2xl text-sm font-bold tracking-wide disabled:opacity-40"
+                        style={{ color: '#0D0D0D' }}
                     >
                         Next: Select Vehicle
                     </button>
@@ -238,50 +258,49 @@ export default function NewAppointmentPage() {
             {/* Step 2: Vehicle */}
             {step === 2 && (
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                            Select Vehicle
-                        </label>
-                        {vehicles.length === 0 ? (
-                            <div className="text-center py-8 bg-white rounded-2xl border border-slate-100">
-                                <p className="text-sm text-slate-500">No vehicles for this customer</p>
-                                <a href={`/customers/${form.customerId}/vehicles/new`} className="text-sm text-slate-900 font-medium underline mt-1 inline-block">
-                                    Add vehicle →
-                                </a>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {vehicles.map(v => (
-                                    <button
-                                        key={v._id}
-                                        onClick={() => setForm({ ...form, vehicleId: v._id, vehicleLabel: `${v.regNumber} · ${v.brand} ${v.model}` })}
-                                        className={`w-full flex items-center gap-3 bg-white border rounded-xl px-4 py-3.5 text-left transition-colors ${
-                                            form.vehicleId === v._id ? 'border-slate-900 bg-slate-50' : 'border-slate-100'
-                                        }`}
-                                    >
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                            form.vehicleId === v._id ? 'bg-slate-900' : 'bg-slate-100'
-                                        }`}>
-                                            <span className={form.vehicleId === v._id ? 'text-white' : 'text-slate-500'}>🚗</span>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-900">{v.regNumber}</p>
-                                            <p className="text-xs text-slate-400">{v.brand} {v.model} · {v.year}</p>
-                                        </div>
-                                        {form.vehicleId === v._id && (
-                                            <svg className="ml-auto text-slate-900" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                        Select Vehicle
+                    </label>
+                    {vehicles.length === 0 ? (
+                        <div className="text-center py-8 rounded-2xl" style={cardStyle}>
+                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No vehicles for this customer</p>
+                            <a href={`/customers/${form.customerId}/vehicles/new`} className="text-sm font-medium underline mt-1 inline-block" style={{ color: '#C8A44A' }}>
+                                Add vehicle →
+                            </a>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {vehicles.map(v => (
+                                <button
+                                    key={v._id}
+                                    onClick={() => setForm({ ...form, vehicleId: v._id, vehicleLabel: `${v.regNumber} · ${v.brand} ${v.model}` })}
+                                    className="w-full flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-all"
+                                    style={{
+                                        background: form.vehicleId === v._id ? 'rgba(200,164,74,0.12)' : 'var(--surface-1)',
+                                        border: `1px solid ${form.vehicleId === v._id ? 'rgba(200,164,74,0.4)' : 'var(--border-dim)'}`,
+                                    }}
+                                >
+                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: form.vehicleId === v._id ? 'rgba(200,164,74,0.2)' : 'var(--surface-3)' }}>
+                                        <span style={{ color: form.vehicleId === v._id ? '#C8A44A' : 'var(--text-muted)' }}>🚗</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{v.regNumber}</p>
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{v.brand} {v.model} · {v.year}</p>
+                                    </div>
+                                    {form.vehicleId === v._id && (
+                                        <svg className="ml-auto" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#C8A44A" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     <button
                         onClick={() => { setError(''); setStep(3) }}
                         disabled={!form.vehicleId}
-                        className="w-full bg-slate-900 text-white py-4 rounded-2xl text-sm font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
+                        className="btn-gold w-full py-4 rounded-2xl text-sm font-bold tracking-wide disabled:opacity-40"
+                        style={{ color: '#0D0D0D' }}
                     >
                         Next: Pick Date & Time
                     </button>
@@ -291,35 +310,30 @@ export default function NewAppointmentPage() {
             {/* Step 3: Date & Time */}
             {step === 3 && (
                 <div className="space-y-5">
-                    {/* Calendar strip */}
                     <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 block">Select Date</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>Select Date</label>
                         <div className="overflow-x-auto -mx-4 px-4">
                             <div className="flex gap-2 pb-2" style={{ width: 'max-content' }}>
                                 {weekDays.map(day => {
                                     const iso = day.toISOString().split('T')[0]
                                     const isSelected = form.date === iso
                                     const isPast = day < today && iso !== today.toISOString().split('T')[0]
-                                    const dayName = day.toLocaleDateString('en', { weekday: 'short' })
-                                    const dayNum = day.getDate()
-                                    const month = day.toLocaleDateString('en', { month: 'short' })
-
                                     return (
                                         <button
                                             key={iso}
                                             disabled={isPast}
                                             onClick={() => setForm({ ...form, date: iso, timeSlot: '' })}
-                                            className={`flex flex-col items-center w-14 py-3 rounded-2xl transition-colors shrink-0 ${
-                                                isSelected
-                                                    ? 'bg-slate-900 text-white'
-                                                    : isPast
-                                                    ? 'bg-slate-50 text-slate-300 cursor-not-allowed'
-                                                    : 'bg-white border border-slate-100 text-slate-700'
-                                            }`}
+                                            className="flex flex-col items-center w-14 py-3 rounded-2xl shrink-0 transition-all"
+                                            style={{
+                                                background: isSelected ? '#C8A44A' : isPast ? 'var(--surface-2)' : 'var(--surface-1)',
+                                                border: `1px solid ${isSelected ? '#C8A44A' : 'var(--border-dim)'}`,
+                                                color: isSelected ? '#0D0D0D' : isPast ? 'var(--text-muted)' : 'var(--text-primary)',
+                                                cursor: isPast ? 'not-allowed' : 'pointer',
+                                            }}
                                         >
-                                            <span className="text-[10px] font-medium">{dayName}</span>
-                                            <span className="text-lg font-bold mt-0.5">{dayNum}</span>
-                                            <span className="text-[10px]">{month}</span>
+                                            <span className="text-[10px] font-medium">{day.toLocaleDateString('en', { weekday: 'short' })}</span>
+                                            <span className="text-lg font-bold mt-0.5">{day.getDate()}</span>
+                                            <span className="text-[10px]">{day.toLocaleDateString('en', { month: 'short' })}</span>
                                         </button>
                                     )
                                 })}
@@ -327,19 +341,19 @@ export default function NewAppointmentPage() {
                         </div>
                     </div>
 
-                    {/* Time slots */}
                     <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 block">Select Time Slot</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>Select Time Slot</label>
                         <div className="grid grid-cols-3 gap-2">
                             {TIME_SLOTS.map(slot => (
                                 <button
                                     key={slot}
                                     onClick={() => setForm({ ...form, timeSlot: slot })}
-                                    className={`py-3 rounded-xl text-sm font-medium transition-colors ${
-                                        form.timeSlot === slot
-                                            ? 'bg-slate-900 text-white'
-                                            : 'bg-white border border-slate-100 text-slate-700'
-                                    }`}
+                                    className="py-3 rounded-xl text-sm font-medium transition-all"
+                                    style={{
+                                        background: form.timeSlot === slot ? 'rgba(200,164,74,0.15)' : 'var(--surface-1)',
+                                        border: `1px solid ${form.timeSlot === slot ? 'rgba(200,164,74,0.5)' : 'var(--border-dim)'}`,
+                                        color: form.timeSlot === slot ? '#C8A44A' : 'var(--text-secondary)',
+                                    }}
                                 >
                                     {slot}
                                 </button>
@@ -347,13 +361,13 @@ export default function NewAppointmentPage() {
                         </div>
                     </div>
 
-                    {/* Duration */}
                     <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Estimated Duration</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>Estimated Duration</label>
                         <select
                             value={form.estimatedDuration}
                             onChange={e => setForm({ ...form, estimatedDuration: Number(e.target.value) })}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3.5 text-sm focus:outline-none"
+                            className={inputCls}
+                            style={inputStyle}
                         >
                             {[30, 60, 90, 120, 180, 240].map(m => (
                                 <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60}h${m % 60 ? ` ${m % 60}min` : ''}`}</option>
@@ -364,28 +378,30 @@ export default function NewAppointmentPage() {
                     <button
                         onClick={() => { setError(''); setStep(4) }}
                         disabled={!form.date || !form.timeSlot}
-                        className="w-full bg-slate-900 text-white py-4 rounded-2xl text-sm font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform"
+                        className="btn-gold w-full py-4 rounded-2xl text-sm font-bold tracking-wide disabled:opacity-40"
+                        style={{ color: '#0D0D0D' }}
                     >
                         Next: Select Service
                     </button>
                 </div>
             )}
 
-            {/* Step 4: Service + confirm */}
+            {/* Step 4: Service Type */}
             {step === 4 && (
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 block">Service Type</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>Service Type</label>
                         <div className="grid grid-cols-2 gap-2">
                             {SERVICE_TYPES.map(s => (
                                 <button
                                     key={s}
                                     onClick={() => setForm({ ...form, serviceType: s })}
-                                    className={`text-left px-3 py-3 rounded-xl text-sm font-medium border transition-colors ${
-                                        form.serviceType === s
-                                            ? 'bg-slate-900 text-white border-slate-900'
-                                            : 'bg-white text-slate-700 border-slate-100'
-                                    }`}
+                                    className="text-left px-3 py-3 rounded-xl text-sm font-medium transition-all"
+                                    style={{
+                                        background: form.serviceType === s ? 'rgba(200,164,74,0.15)' : 'var(--surface-1)',
+                                        border: `1px solid ${form.serviceType === s ? 'rgba(200,164,74,0.5)' : 'var(--border-dim)'}`,
+                                        color: form.serviceType === s ? '#C8A44A' : 'var(--text-secondary)',
+                                    }}
                                 >
                                     {s}
                                 </button>
@@ -393,20 +409,73 @@ export default function NewAppointmentPage() {
                         </div>
                     </div>
 
+                    <button
+                        onClick={() => { setError(''); setStep(5) }}
+                        disabled={!form.serviceType}
+                        className="btn-gold w-full py-4 rounded-2xl text-sm font-bold tracking-wide disabled:opacity-40"
+                        style={{ color: '#0D0D0D' }}
+                    >
+                        Next: Add Complaints
+                    </button>
+                </div>
+            )}
+
+            {/* Step 5: Complaints + Confirm */}
+            {step === 5 && (
+                <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Notes (optional)</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                            Customer Complaints
+                        </label>
+                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Select all issues reported by the customer</p>
+                        <div className="flex flex-wrap gap-2">
+                            {COMPLAINT_CHIPS.map(c => {
+                                const selected = form.complaints.includes(c)
+                                return (
+                                    <button
+                                        key={c}
+                                        onClick={() => toggleComplaint(c)}
+                                        className="text-xs px-3 py-2 rounded-full font-medium transition-all"
+                                        style={{
+                                            background: selected ? 'rgba(200,164,74,0.18)' : 'var(--surface-2)',
+                                            border: `1px solid ${selected ? 'rgba(200,164,74,0.5)' : 'var(--border-subtle)'}`,
+                                            color: selected ? '#C8A44A' : 'var(--text-secondary)',
+                                        }}
+                                    >
+                                        {selected && '✓ '}{c}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>Other / Custom Complaint</label>
                         <textarea
-                            placeholder="Additional details about the issue..."
+                            placeholder="Describe any other issue..."
+                            value={form.customComplaint}
+                            onChange={e => setForm({ ...form, customComplaint: e.target.value })}
+                            rows={2}
+                            className={`${inputCls} resize-none`}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>Additional Notes (optional)</label>
+                        <textarea
+                            placeholder="Extra details for the workshop..."
                             value={form.notes}
                             onChange={e => setForm({ ...form, notes: e.target.value })}
-                            rows={3}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3.5 text-sm placeholder-slate-300 focus:outline-none resize-none"
+                            rows={2}
+                            className={`${inputCls} resize-none`}
+                            style={inputStyle}
                         />
                     </div>
 
                     {/* Summary */}
-                    <div className="bg-slate-50 rounded-2xl p-4 space-y-2 text-sm">
-                        <p className="font-semibold text-slate-900 mb-3">Appointment Summary</p>
+                    <div className="rounded-2xl p-4 space-y-2 text-sm" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
+                        <p className="font-semibold mb-3" style={{ color: '#C8A44A' }}>Appointment Summary</p>
                         {[
                             ['Customer', form.customerName],
                             ['Vehicle', form.vehicleLabel],
@@ -415,22 +484,30 @@ export default function NewAppointmentPage() {
                             ['Service', form.serviceType || '—'],
                         ].map(([label, value]) => (
                             <div key={label} className="flex justify-between">
-                                <span className="text-slate-400">{label}</span>
-                                <span className="font-medium text-slate-900">{value}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{value}</span>
                             </div>
                         ))}
+                        {form.complaints.length > 0 && (
+                            <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--border-dim)' }}>
+                                <span style={{ color: 'var(--text-muted)' }} className="text-xs block mb-1">Complaints</span>
+                                <div className="flex flex-wrap gap-1">
+                                    {form.complaints.map(c => (
+                                        <span key={c} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(200,164,74,0.15)', color: '#C8A44A' }}>{c}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <button
                         onClick={handleSubmit}
-                        disabled={loading || !form.serviceType}
-                        className="w-full bg-slate-900 text-white py-4 rounded-2xl text-sm font-semibold disabled:opacity-40 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                        disabled={loading}
+                        className="btn-gold w-full py-4 rounded-2xl text-sm font-bold tracking-wide disabled:opacity-40 flex items-center justify-center gap-2"
+                        style={{ color: '#0D0D0D' }}
                     >
                         {loading ? (
-                            <>
-                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Booking...
-                            </>
+                            <><span className="w-4 h-4 border-2 border-black/30 border-t-black/80 rounded-full animate-spin" />Booking...</>
                         ) : 'Confirm Appointment'}
                     </button>
                 </div>

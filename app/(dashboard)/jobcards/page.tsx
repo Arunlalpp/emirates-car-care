@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useState } from 'react'
 
 const STAGES = [
-    { key: 'received',      label: 'Received',      color: 'bg-slate-100 text-slate-600' },
-    { key: 'inspection',    label: 'Inspection',     color: 'bg-blue-100 text-blue-700' },
-    { key: 'in_service',    label: 'In Service',     color: 'bg-violet-100 text-violet-700' },
-    { key: 'quality_check', label: 'QC',             color: 'bg-amber-100 text-amber-700' },
-    { key: 'ready',         label: 'Ready',          color: 'bg-green-100 text-green-700' },
-    { key: 'delivered',     label: 'Delivered',      color: 'bg-slate-200 text-slate-500' },
+    { key: 'received', label: 'Received', color: 'bg-slate-100 text-slate-600' },
+    { key: 'inspection', label: 'Inspection', color: 'bg-blue-100 text-blue-700' },
+    { key: 'in_service', label: 'In Service', color: 'bg-violet-100 text-violet-700' },
+    { key: 'quality_check', label: 'QC', color: 'bg-amber-100 text-amber-700' },
+    { key: 'ready', label: 'Ready', color: 'bg-green-100 text-green-700' },
+    { key: 'delivered', label: 'Delivered', color: 'bg-slate-200 text-slate-500' },
 ]
 
 function stageMeta(key: string) {
@@ -28,7 +29,8 @@ function StageBar({ current }: { current: string }) {
                         <div
                             className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all"
                             style={{
-                                background: done ? '#16a34a' : active ? '#0f172a' : '#e2e8f0',
+                                background: done ? '#16a34a' : active ? '#C8A44A' : 'rgba(255,255,255,0.08)',
+                                boxShadow: active ? '0 0 8px rgba(200,164,74,0.5)' : 'none',
                             }}
                         >
                             {done ? (
@@ -36,11 +38,11 @@ function StageBar({ current }: { current: string }) {
                                     <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" />
                                 </svg>
                             ) : (
-                                <div className="w-2 h-2 rounded-full" style={{ background: active ? 'white' : '#cbd5e1' }} />
+                                <div className="w-2 h-2 rounded-full" style={{ background: active ? '#0A0C10' : 'rgba(255,255,255,0.22)' }} />
                             )}
                         </div>
                         {i < STAGES.length - 2 && (
-                            <div className="step-connector" style={{ background: done ? '#16a34a' : '#e2e8f0' }} />
+                            <div className="step-connector" style={{ background: done ? '#16a34a' : 'rgba(255,255,255,0.08)' }} />
                         )}
                     </div>
                 )
@@ -84,10 +86,10 @@ function JobCard({ job }: { job: any }) {
 
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
                 <span className="text-xs text-slate-400">
-                    {new Date(job.createdAt).toLocaleDateString('en-AE', { day: 'numeric', month: 'short' })}
+                    {new Date(job.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </span>
                 {job.estimatedCost && (
-                    <span className="text-xs font-semibold text-slate-700">AED {job.estimatedCost}</span>
+                    <span className="text-xs font-semibold text-slate-700">₹{job.estimatedCost}</span>
                 )}
             </div>
         </Link>
@@ -101,29 +103,33 @@ const FILTER_TABS = [
     { key: 'ready', label: 'Ready' },
 ]
 
+async function fetchJobCards(filter: string) {
+    const url = filter ? `/api/jobcards?status=${filter}` : '/api/jobcards'
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('Failed to fetch job cards')
+    const json = await res.json()
+    return json.data ?? []
+}
+
 export default function JobCardsPage() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [jobs, setJobs] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState('')
 
-    const load = useCallback(async () => {
-        setLoading(true)
-        const url = filter ? `/api/jobcards?status=${filter}` : '/api/jobcards'
-        const res = await fetch(url)
-        const json = await res.json()
-        setJobs(json.data ?? [])
-        setLoading(false)
-    }, [filter])
-
-    useEffect(() => { load() }, [load])
+    const { data: jobs = [], isLoading, isFetching } = useQuery({
+        queryKey: ['jobcards', filter],
+        queryFn: () => fetchJobCards(filter),
+    })
 
     return (
         <div className="max-w-2xl mx-auto px-4">
             <div className="pt-12 pb-4 flex items-center justify-between">
                 <div>
                     <p className="text-sm text-slate-400 font-medium">Service</p>
-                    <h1 className="text-2xl font-bold text-slate-900">Job Cards</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">
+                        Job Cards
+                        {isFetching && !isLoading && (
+                            <span className="ml-2 inline-block w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin align-middle" />
+                        )}
+                    </h1>
                 </div>
                 <Link
                     href="/jobcards/new"
@@ -142,11 +148,8 @@ export default function JobCardsPage() {
                     <button
                         key={tab.key}
                         onClick={() => setFilter(tab.key)}
-                        className={`shrink-0 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors ${
-                            filter === tab.key
-                                ? 'text-white'
-                                : 'bg-white border border-slate-100 text-slate-500'
-                        }`}
+                        className={`shrink-0 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors ${filter === tab.key ? 'text-white' : 'bg-white border border-slate-100 text-slate-500'
+                            }`}
                         style={filter === tab.key ? { background: '#C8A44A' } : {}}
                     >
                         {tab.label}
@@ -154,7 +157,7 @@ export default function JobCardsPage() {
                 ))}
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
                         <div key={i} className="bg-white rounded-2xl border border-slate-100 p-4 animate-pulse">
@@ -183,11 +186,10 @@ export default function JobCardsPage() {
                 </div>
             ) : (
                 <div className="space-y-3 pb-24">
-                    {jobs.map(job => <JobCard key={job._id} job={job} />)}
+                    {jobs.map((job: { _id: string }) => <JobCard key={job._id} job={job} />)}
                 </div>
             )}
 
-            {/* FAB */}
             <Link
                 href="/jobcards/new"
                 className="fixed bottom-24 right-5 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg lg:hidden"

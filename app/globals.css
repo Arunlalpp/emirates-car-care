@@ -1,24 +1,136 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════
+   DARK MODE  (default)
+══════════════════════════════════════════════ */
 :root {
-    --background: #f8fafc;
-    --foreground: #0f172a;
-    --gold: #C8A44A;
+    --gold:       #C8A44A;
     --gold-light: #E2C06A;
-    --dark: #0D0D0D;
+
+    --surface-0:  #0A0C10;   /* page background */
+    --surface-1:  #12151C;   /* cards */
+    --surface-2:  #191D28;   /* elevated / inputs */
+    --surface-3:  #21273A;   /* highlights / icon bg */
+
+    --border-dim:    rgba(255,255,255,0.07);
+    --border-subtle: rgba(255,255,255,0.14);
+
+    --text-primary:   #F2F5FA;
+    --text-secondary: #8B9AB0;
+    --text-muted:     #566173;
+}
+
+/* ══════════════════════════════════════════════
+   LIGHT MODE  — applied when html[data-theme="light"]
+   Specificity (0,1,1) beats :root (0,1,0) so these win
+══════════════════════════════════════════════ */
+html[data-theme="light"] {
+    --surface-0:  #F0F3FA;
+    --surface-1:  #FFFFFF;
+    --surface-2:  #EAEEf8;
+    --surface-3:  #DDE3F0;
+
+    --border-dim:    rgba(0,0,0,0.09);
+    --border-subtle: rgba(0,0,0,0.16);
+
+    --text-primary:   #0F1117;
+    --text-secondary: #3D4A5C;
+    --text-muted:     #7B8EA4;
 }
 
 @theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
     --color-gold: var(--gold);
 }
 
 body {
-    background: var(--background);
-    color: var(--foreground);
+    background: var(--surface-0);
+    color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
+    transition: background 0.2s ease, color 0.15s ease;
+}
+
+/* ═══════════════════════════════════════════════
+   Tailwind class overrides — all use CSS vars so
+   they automatically respect both themes.
+═══════════════════════════════════════════════ */
+
+.bg-white        { background-color: var(--surface-1); }
+.bg-slate-50     { background-color: var(--surface-0); }
+.bg-slate-100    { background-color: var(--surface-2); }
+.bg-slate-200    { background-color: var(--surface-3); }
+.bg-slate-900    { background-color: #C8A44A; }   /* brand gold for FABs/avatars */
+
+.border-slate-100 { border-color: var(--border-dim); }
+.border-slate-200 { border-color: var(--border-subtle); }
+
+.text-slate-900  { color: var(--text-primary); }
+.text-slate-800  { color: var(--text-primary); }
+.text-slate-700  { color: var(--text-secondary); }
+.text-slate-600  { color: var(--text-secondary); }
+.text-slate-500  { color: var(--text-muted); }
+.text-slate-400  { color: var(--text-secondary); }
+
+/* ── Status badge text — DARK MODE: bright so they read on dark tinted cards ── */
+html:not([data-theme="light"]) .text-amber-700  { color: #FBB947; }
+html:not([data-theme="light"]) .text-blue-700   { color: #60A5FA; }
+html:not([data-theme="light"]) .text-violet-700 { color: #A78BFA; }
+html:not([data-theme="light"]) .text-green-700  { color: #4ADE80; }
+html:not([data-theme="light"]) .text-red-500    { color: #F87171; }
+html:not([data-theme="light"]) .text-red-100    { color: #FCA5A5; }
+
+/* ── Status badge text — LIGHT MODE: Tailwind's original dark values are fine ── */
+html[data-theme="light"] .text-amber-700  { color: #92400e; }
+html[data-theme="light"] .text-blue-700   { color: #1d4ed8; }
+html[data-theme="light"] .text-violet-700 { color: #6d28d9; }
+html[data-theme="light"] .text-green-700  { color: #15803d; }
+
+.placeholder-slate-300::placeholder { color: var(--text-muted); }
+.placeholder-slate-400::placeholder { color: var(--text-muted); }
+
+.divide-slate-50  > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-dim); }
+.divide-y         > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-dim); }
+
+/* Sign-out / error */
+.bg-red-50      { background-color: rgba(239,68,68,0.08); }
+.bg-red-100     { background-color: rgba(239,68,68,0.12); }
+.border-red-100 { border-color: rgba(239,68,68,0.20); }
+
+/* Success / info toasts */
+.bg-green-50      { background-color: rgba(34,197,94,0.08); }
+.border-green-100 { border-color: rgba(34,197,94,0.20); }
+.bg-blue-50       { background-color: rgba(59,130,246,0.10); }
+.border-blue-100  { border-color: rgba(59,130,246,0.20); }
+.bg-amber-50      { background-color: rgba(245,158,11,0.10); }
+.border-amber-100 { border-color: rgba(245,158,11,0.20); }
+.bg-violet-50     { background-color: rgba(139,92,246,0.10); }
+
+/* Status badge tinted backgrounds */
+.bg-amber-100  { background-color: rgba(245,158,11,0.15); }
+.bg-blue-100   { background-color: rgba(59,130,246,0.15); }
+.bg-violet-100 { background-color: rgba(139,92,246,0.15); }
+.bg-green-100  { background-color: rgba(34,197,94,0.15); }
+.bg-slate-200.text-slate-500 { background-color: var(--surface-3); }
+
+/* Card shadow: subtle lift in dark, soft shadow in light */
+html:not([data-theme="light"]) .bg-white {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+}
+html[data-theme="light"] .bg-white {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Input color-scheme per theme */
+html:not([data-theme="light"]) input,
+html:not([data-theme="light"]) select,
+html:not([data-theme="light"]) textarea {
+    color-scheme: dark;
+}
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+    color-scheme: light;
 }
 
 .safe-area-pb {
@@ -88,14 +200,33 @@ body {
     transform: scale(0.97);
 }
 
-/* Status stepper */
+/* Status stepper connector line */
 .step-connector {
     flex: 1;
     height: 2px;
-    background: #e2e8f0;
+    background: var(--border-dim);
     margin: 0 4px;
     border-radius: 1px;
 }
 .step-connector.done {
     background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+/* ── Print styles for invoices ── */
+@media print {
+    body { background: #fff !important; color: #000 !important; }
+    /* hide all nav / chrome elements */
+    nav,
+    .no-print,
+    [class~="no-print"] { display: none !important; }
+    .print-only { display: block !important; }
+    /* ensure fixed-position elements don't bleed into print */
+    * { position: static !important; }
+    .invoice-doc {
+        position: static !important;
+        margin: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+    }
 }

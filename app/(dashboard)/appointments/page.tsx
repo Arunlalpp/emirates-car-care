@@ -37,7 +37,7 @@ function formatDateLabel(date: Date): string {
 
     if (d.getTime() === today.getTime()) return 'Today'
     if (d.getTime() === tomorrow.getTime()) return 'Tomorrow'
-    return new Date(date).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })
+    return new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 export default async function AppointmentsPage() {
@@ -54,7 +54,7 @@ export default async function AppointmentsPage() {
     }
     const dateKeys = Object.keys(groups).sort()
 
-    const headerDate = new Date().toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long' })
+    const headerDate = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
     return (
         <div className="max-w-2xl mx-auto px-4">

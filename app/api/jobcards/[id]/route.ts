@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await connectDB()
 
     const body = await req.json()
-    const { status, technicianNotes, finalCost, note } = body
+    const { status, technicianNotes, finalCost, note, lineItems, laborCharge, discountAmount, vatPercent, totalAmount } = body
 
     const job = await JobCard.findById(id)
     if (!job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -51,7 +51,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             note: note ?? '',
         })
 
-        // Sync appointment status when job card reaches terminal states
         if (job.appointmentId) {
             const apptStatus = status === 'delivered' ? 'completed' : 'in_progress'
             await Appointment.findByIdAndUpdate(job.appointmentId, { status: apptStatus })
@@ -60,6 +59,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (technicianNotes !== undefined) job.technicianNotes = technicianNotes
     if (finalCost !== undefined) job.finalCost = finalCost
+
+    // Billing fields
+    if (lineItems !== undefined) job.lineItems = lineItems
+    if (laborCharge !== undefined) job.laborCharge = laborCharge
+    if (discountAmount !== undefined) job.discountAmount = discountAmount
+    if (vatPercent !== undefined) job.vatPercent = vatPercent
+    if (totalAmount !== undefined) {
+        job.totalAmount = totalAmount
+        job.finalCost = totalAmount // keep finalCost in sync
+    }
 
     await job.save()
     return NextResponse.json({ data: job })

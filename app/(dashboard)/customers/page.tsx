@@ -1,39 +1,35 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useState } from 'react'
+import { useDebouncedValue } from '@/lib/hooks'
 
 interface Customer {
     _id: string
     name: string
     phone: string
     email?: string
-    createdAt: string
+}
+
+async function fetchCustomers(q: string) {
+    const res = await fetch(`/api/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+    if (!res.ok) throw new Error('Failed to fetch')
+    const j = await res.json()
+    return j.data as Customer[]
 }
 
 export default function CustomersPage() {
-    const [customers, setCustomers] = useState<Customer[]>([])
     const [query, setQuery] = useState('')
-    const [loading, setLoading] = useState(true)
+    const debouncedQuery = useDebouncedValue(query, 300)
 
-    const fetchCustomers = useCallback(async (q: string) => {
-        setLoading(true)
-        const res = await fetch(`/api/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`)
-        if (res.ok) {
-            const j = await res.json()
-            setCustomers(j.data ?? [])
-        }
-        setLoading(false)
-    }, [])
-
-    useEffect(() => {
-        const t = setTimeout(() => fetchCustomers(query), query ? 300 : 0)
-        return () => clearTimeout(t)
-    }, [query, fetchCustomers])
+    const { data: customers = [], isLoading } = useQuery({
+        queryKey: ['customers', debouncedQuery],
+        queryFn: () => fetchCustomers(debouncedQuery),
+    })
 
     return (
         <div className="max-w-2xl mx-auto px-4">
-            {/* Header */}
             <div className="pt-12 pb-4 flex items-center justify-between">
                 <div>
                     <p className="text-sm text-slate-400 font-medium">Directory</p>
@@ -41,7 +37,8 @@ export default function CustomersPage() {
                 </div>
                 <Link
                     href="/customers/new"
-                    className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: '#C8A44A' }}
                 >
                     <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -49,7 +46,6 @@ export default function CustomersPage() {
                 </Link>
             </div>
 
-            {/* Search */}
             <div className="relative mb-4">
                 <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -69,8 +65,7 @@ export default function CustomersPage() {
                 )}
             </div>
 
-            {/* List */}
-            {loading ? (
+            {isLoading ? (
                 <div className="space-y-2">
                     {[1, 2, 3, 4, 5].map(i => (
                         <div key={i} className="bg-white rounded-2xl border border-slate-100 p-4 animate-pulse">
@@ -96,7 +91,7 @@ export default function CustomersPage() {
                         {query ? 'Try a different search' : 'Add your first customer to get started'}
                     </p>
                     {!query && (
-                        <Link href="/customers/new" className="mt-5 inline-block bg-slate-900 text-white px-6 py-3 rounded-2xl text-sm font-semibold">
+                        <Link href="/customers/new" className="mt-5 inline-block btn-gold px-6 py-3 rounded-2xl text-sm font-semibold" style={{ color: '#0A0C10' }}>
                             Add Customer
                         </Link>
                     )}
@@ -110,8 +105,8 @@ export default function CustomersPage() {
                             href={`/customers/${c._id}`}
                             className="flex items-center gap-3 bg-white border border-slate-100 rounded-2xl p-4 active:scale-[0.98] transition-transform"
                         >
-                            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center shrink-0">
-                                <span className="text-white font-bold text-sm">{c.name[0].toUpperCase()}</span>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(200,164,74,0.15)', border: '1px solid rgba(200,164,74,0.25)' }}>
+                                <span className="font-bold text-sm" style={{ color: '#C8A44A' }}>{c.name[0].toUpperCase()}</span>
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-slate-900 truncate">{c.name}</p>
@@ -125,12 +120,11 @@ export default function CustomersPage() {
                 </div>
             )}
 
-            {/* FAB */}
             <Link
                 href="/customers/new"
-                className="fixed bottom-24 right-5 w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg lg:hidden"
+                className="fixed bottom-24 right-5 w-14 h-14 btn-gold rounded-2xl flex items-center justify-center shadow-lg lg:hidden"
             >
-                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
+                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0A0C10" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
             </Link>

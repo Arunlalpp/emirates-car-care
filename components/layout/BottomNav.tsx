@@ -42,7 +42,7 @@ const NAV = [
     },
     {
         href: '/profile',
-        label: 'Profile',
+        label: 'Account',
         icon: (
             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -54,20 +54,29 @@ const NAV = [
 export default function BottomNav() {
     const path = usePathname()
     return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex lg:hidden z-40 safe-area-pb">
+        <nav
+            className="print:hidden fixed bottom-0 left-0 right-0 flex lg:hidden z-40 safe-area-pb"
+            style={{ background: 'var(--surface-1)', borderTop: '1px solid var(--border-dim)', backdropFilter: 'blur(12px)' }}
+        >
             {NAV.map(item => {
-                const active = item.href === '/dashboard' ? (path === '/dashboard' || path === '/') : path.startsWith(item.href)
+                const active = item.href === '/dashboard'
+                    ? (path === '/dashboard' || path === '/')
+                    : path.startsWith(item.href)
                 return (
                     <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
-                            active ? 'text-slate-900' : 'text-slate-400'
-                        }`}
+                        className="flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors relative"
+                        style={{ color: active ? '#C8A44A' : '#4E5E72' }}
                     >
                         {item.icon}
                         <span className="text-[10px] font-medium">{item.label}</span>
-                        {active && <span className="absolute top-0 w-8 h-0.5 bg-slate-900 rounded-full" />}
+                        {active && (
+                            <span
+                                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                                style={{ background: '#C8A44A' }}
+                            />
+                        )}
                     </Link>
                 )
             })}

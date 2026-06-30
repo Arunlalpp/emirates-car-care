@@ -7,6 +7,20 @@ const StatusHistorySchema = new Schema({
     note: String,
 }, { _id: false })
 
+const InspectionImageSchema = new Schema({
+    dataUrl: { type: String, required: true },
+    caption: { type: String, default: '' },
+    uploadedAt: { type: Date, default: Date.now },
+}, { _id: false })
+
+const LineItemSchema = new Schema({
+    description: { type: String, required: true },
+    type: { type: String, enum: ['part', 'labor', 'service'], default: 'service' },
+    quantity: { type: Number, default: 1, min: 0 },
+    unitPrice: { type: Number, default: 0, min: 0 },
+    total: { type: Number, default: 0 },
+}, { _id: false })
+
 const JobCardSchema = new Schema({
     jobNumber: { type: String, unique: true },
     appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
@@ -28,9 +42,16 @@ const JobCardSchema = new Schema({
     notificationSent: { type: Boolean, default: false },
     notifiedAt: Date,
     statusHistory: [StatusHistorySchema],
+
+    inspectionImages: [InspectionImageSchema],
+
+    lineItems: [LineItemSchema],
+    laborCharge: { type: Number, default: 0 },
+    discountAmount: { type: Number, default: 0 },
+    vatPercent: { type: Number, default: 5 },
+    totalAmount: { type: Number, default: 0 },
 }, { timestamps: true })
 
-// Auto-generate job number before save
 JobCardSchema.pre('save', async function () {
     if (!this.jobNumber) {
         const year = new Date().getFullYear()

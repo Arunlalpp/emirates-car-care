@@ -14,7 +14,6 @@ async function getStats() {
         today.setHours(0, 0, 0, 0)
         const tomorrow = new Date(today)
         tomorrow.setDate(tomorrow.getDate() + 1)
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
         const [todayAppts, totalCustomers, pendingAppts, inProgressAppts] = await Promise.all([
             Appointment.countDocuments({ date: { $gte: today, $lt: tomorrow } }),
@@ -23,7 +22,6 @@ async function getStats() {
             JobCard.countDocuments({ status: { $in: ['received', 'inspection', 'in_service', 'quality_check'] } }),
         ])
 
-        // Today's appointment list
         const todayList = await Appointment.find({ date: { $gte: today, $lt: tomorrow } })
             .populate('customerId', 'name phone')
             .populate('vehicleId', 'regNumber brand model')
@@ -31,18 +29,18 @@ async function getStats() {
             .limit(5)
             .lean()
 
-        return { todayAppts, totalCustomers, pendingAppts, inProgressAppts, todayList, monthStart }
+        return { todayAppts, totalCustomers, pendingAppts, inProgressAppts, todayList }
     } catch {
-        return { todayAppts: 0, totalCustomers: 0, pendingAppts: 0, inProgressAppts: 0, todayList: [], monthStart: new Date() }
+        return { todayAppts: 0, totalCustomers: 0, pendingAppts: 0, inProgressAppts: 0, todayList: [] }
     }
 }
 
-const STATUS_STYLE: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-700',
-    confirmed: 'bg-blue-100 text-blue-700',
-    in_progress: 'bg-blue-500 text-white',
-    completed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-500',
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+    pending:     { bg: 'rgba(245,158,11,0.15)',  text: '#FBBF24' },
+    confirmed:   { bg: 'rgba(59,130,246,0.15)',  text: '#60A5FA' },
+    in_progress: { bg: 'rgba(139,92,246,0.15)',  text: '#A78BFA' },
+    completed:   { bg: 'rgba(34,197,94,0.15)',   text: '#4ADE80' },
+    cancelled:   { bg: 'rgba(239,68,68,0.12)',   text: '#F87171' },
 }
 
 export default async function DashboardPage() {
@@ -51,45 +49,88 @@ export default async function DashboardPage() {
     const firstName = session?.user?.name?.split(' ')[0] ?? 'there'
 
     const STAT_CARDS = [
-        { label: "Today's appointments", value: stats.todayAppts, icon: '📅', color: 'bg-blue-50', textColor: 'text-blue-700', href: '/appointments' },
-        { label: 'Total customers', value: stats.totalCustomers, icon: '👥', color: 'bg-violet-50', textColor: 'text-violet-700', href: '/customers' },
-        { label: 'Pending bookings', value: stats.pendingAppts, icon: '⏳', color: 'bg-amber-50', textColor: 'text-amber-700', href: '/appointments' },
-        { label: 'Jobs in progress', value: stats.inProgressAppts, icon: '🔧', color: 'bg-slate-900', textColor: 'text-white', href: '/jobcards' },
+        {
+            label: "Today's Appointments",
+            value: stats.todayAppts,
+            icon: '📅',
+            bg: 'rgba(59,130,246,0.10)',
+            border: 'rgba(59,130,246,0.20)',
+            textColor: '#60A5FA',
+            href: '/appointments',
+        },
+        {
+            label: 'Total Customers',
+            value: stats.totalCustomers,
+            icon: '👥',
+            bg: 'rgba(139,92,246,0.10)',
+            border: 'rgba(139,92,246,0.20)',
+            textColor: '#A78BFA',
+            href: '/customers',
+        },
+        {
+            label: 'Pending Bookings',
+            value: stats.pendingAppts,
+            icon: '⏳',
+            bg: 'rgba(245,158,11,0.10)',
+            border: 'rgba(245,158,11,0.20)',
+            textColor: '#FBBF24',
+            href: '/appointments',
+        },
+        {
+            label: 'Jobs In Progress',
+            value: stats.inProgressAppts,
+            icon: '🔧',
+            bg: 'rgba(200,164,74,0.10)',
+            border: 'rgba(200,164,74,0.25)',
+            textColor: '#C8A44A',
+            href: '/jobcards',
+        },
     ]
+
+    const cardStyle = { background: 'var(--surface-1)', border: '1px solid var(--border-dim)' } as const
 
     return (
         <div className="max-w-2xl mx-auto px-4">
+            {/* Greeting */}
             <div className="pt-12 pb-6">
-                <p className="text-sm text-slate-400 font-medium">Welcome back,</p>
-                <h1 className="text-2xl font-bold text-slate-900">{firstName}</h1>
-                <p className="text-xs mt-1 capitalize font-medium" style={{ color: '#C8A44A' }}>{session?.user?.role} · Emirates Car Care</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Welcome back,</p>
+                <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{firstName}</h1>
+                <p className="text-xs mt-1 font-medium capitalize" style={{ color: '#C8A44A' }}>
+                    {(session?.user as { role?: string })?.role} · Emirates Car Care
+                </p>
             </div>
 
-            {/* Stats */}
+            {/* Stats grid */}
             <div className="grid grid-cols-2 gap-3 mb-6">
                 {STAT_CARDS.map(card => (
-                    <Link key={card.label} href={card.href} className={`${card.color} rounded-2xl p-4 card-lift animate-fadeInUp`}>
+                    <Link
+                        key={card.label}
+                        href={card.href}
+                        className="rounded-2xl p-4 card-lift animate-fadeInUp"
+                        style={{ background: card.bg, border: `1px solid ${card.border}` }}
+                    >
                         <span className="text-2xl">{card.icon}</span>
-                        <p className={`text-2xl font-bold mt-2 ${card.textColor}`}>{card.value}</p>
-                        <p className={`text-xs mt-0.5 ${card.color === 'bg-slate-900' ? 'text-slate-400' : 'text-slate-500'}`}>{card.label}</p>
+                        <p className="text-3xl font-black mt-2" style={{ color: card.textColor }}>{card.value}</p>
+                        <p className="text-xs mt-0.5 font-medium" style={{ color: card.textColor, opacity: 0.7 }}>{card.label}</p>
                     </Link>
                 ))}
             </div>
 
-            {/* Quick actions */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-6">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Quick Actions</p>
+            {/* Quick Actions */}
+            <div className="rounded-2xl p-4 mb-6" style={cardStyle}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Quick Actions</p>
                 <div className="grid grid-cols-2 gap-2">
                     {[
                         { href: '/appointments/new', label: 'New Booking', icon: '📅' },
-                        { href: '/customers/new', label: 'Add Customer', icon: '👤' },
-                        { href: '/jobcards', label: 'Job Cards', icon: '📋' },
-                        { href: '/customers', label: 'All Customers', icon: '👥' },
+                        { href: '/customers/new',    label: 'Add Customer', icon: '👤' },
+                        { href: '/jobcards',         label: 'Job Cards',    icon: '📋' },
+                        { href: '/settings/pricing', label: 'Pricing',      icon: '💰' },
                     ].map(action => (
                         <Link
                             key={action.href}
                             href={action.href}
-                            className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 active:scale-[0.97] transition-transform"
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-3 text-sm font-medium active:scale-[0.97] transition-transform"
+                            style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
                         >
                             <span>{action.icon}</span>
                             {action.label}
@@ -102,31 +143,34 @@ export default async function DashboardPage() {
             {stats.todayList.length > 0 && (
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Today's Schedule</p>
-                        <Link href="/appointments" className="text-xs font-semibold text-slate-900">View all →</Link>
+                        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Today&apos;s Schedule</p>
+                        <Link href="/appointments" className="text-xs font-semibold" style={{ color: '#C8A44A' }}>View all →</Link>
                     </div>
                     <div className="space-y-2">
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {stats.todayList.map((appt: any) => (
-                            <div key={appt._id.toString()} className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3">
-                                <div className="text-center w-12 shrink-0">
-                                    <p className="text-xs font-bold text-slate-900">{appt.timeSlot?.split(' ')[0]}</p>
-                                    <p className="text-[10px] text-slate-400">{appt.timeSlot?.split(' ')[1]}</p>
+                        {stats.todayList.map((appt: any) => {
+                            const sc = STATUS_COLORS[appt.status] ?? STATUS_COLORS.pending
+                            return (
+                                <div key={appt._id.toString()} className="rounded-2xl p-4 flex items-center gap-3" style={cardStyle}>
+                                    <div className="text-center w-12 shrink-0">
+                                        <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{appt.timeSlot?.split(' ')[0]}</p>
+                                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{appt.timeSlot?.split(' ')[1]}</p>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{appt.customerId?.name ?? '—'}</p>
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{appt.serviceType}</p>
+                                    </div>
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 capitalize" style={{ background: sc.bg, color: sc.text }}>
+                                        {appt.status.replace('_', ' ')}
+                                    </span>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 truncate">{appt.customerId?.name ?? '—'}</p>
-                                    <p className="text-xs text-slate-400">{appt.serviceType}</p>
-                                </div>
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 capitalize ${STATUS_STYLE[appt.status]}`}>
-                                    {appt.status.replace('_', ' ')}
-                                </span>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </div>
             )}
 
-            <div className="text-xs text-slate-300 text-center pb-4">Emirates Car Care · Workshop Management</div>
+            <div className="text-xs text-center pb-4" style={{ color: 'var(--text-muted)' }}>Emirates Car Care · Workshop Management</div>
         </div>
     )
 }
