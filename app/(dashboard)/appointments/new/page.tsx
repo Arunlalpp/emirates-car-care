@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 
 function compressImage(file: File): Promise<string> {
     return new Promise(resolve => {
@@ -46,6 +45,13 @@ const TIME_SLOTS = [
     '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM',
 ]
 
+const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid', 'cng']
+const CAR_BRANDS = [
+    'Toyota', 'Nissan', 'Honda', 'Mitsubishi', 'Lexus', 'BMW', 'Mercedes-Benz',
+    'Audi', 'Hyundai', 'Kia', 'Ford', 'Chevrolet', 'Jeep', 'Land Rover',
+    'Porsche', 'Volvo', 'Mazda', 'Suzuki', 'Isuzu', 'Renault',
+]
+
 interface Customer { _id: string; name: string; phone: string }
 interface Vehicle { _id: string; regNumber: string; brand: string; model: string; year: number }
 
@@ -63,6 +69,10 @@ function getWeekDays(startDate: Date) {
 
 const inputCls = 'w-full border rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#C8A44A] focus:ring-1 focus:ring-[#C8A44A]/30 transition-colors'
 const inputStyle = { background: 'var(--surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }
+const cardStyle = { background: 'var(--surface-1)', border: '1px solid var(--border-dim)' }
+
+const BLANK_CUSTOMER = { name: '', phone: '', email: '' }
+const BLANK_VEHICLE = { regNumber: '', brand: '', model: '', year: new Date().getFullYear(), color: '', fuelType: 'petrol' }
 
 export default function NewAppointmentPage() {
     const router = useRouter()
@@ -72,9 +82,23 @@ export default function NewAppointmentPage() {
     const [step, setStep] = useState(preCustomerId ? 2 : 1)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+
+    // Customer search + quick-add
     const [customerSearch, setCustomerSearch] = useState('')
     const [customers, setCustomers] = useState<Customer[]>([])
+    const [showAddCustomer, setShowAddCustomer] = useState(false)
+    const [newCustomer, setNewCustomer] = useState(BLANK_CUSTOMER)
+    const [savingCustomer, setSavingCustomer] = useState(false)
+    const [customerError, setCustomerError] = useState('')
+
+    // Vehicle list + quick-add
     const [vehicles, setVehicles] = useState<Vehicle[]>([])
+    const [showAddVehicle, setShowAddVehicle] = useState(false)
+    const [newVehicle, setNewVehicle] = useState(BLANK_VEHICLE)
+    const [savingVehicle, setSavingVehicle] = useState(false)
+    const [vehicleError, setVehicleError] = useState('')
+
+    // Photos
     const [vehiclePhotos, setVehiclePhotos] = useState<string[]>([])
     const [photoUploading, setPhotoUploading] = useState(false)
     const cameraRef = useRef<HTMLInputElement>(null)
@@ -115,11 +139,29 @@ export default function NewAppointmentPage() {
         return () => clearTimeout(t)
     }, [customerSearch])
 
+    // Pre-fill name in quick-add form from whatever was typed in search
+    useEffect(() => {
+        if (showAddCustomer) {
+            setNewCustomer(prev => ({
+                ...prev,
+                name: customerSearch.length >= 2 ? customerSearch : prev.name,
+            }))
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showAddCustomer])
+
     useEffect(() => {
         if (!form.customerId) return
+        setShowAddVehicle(false)
+        setNewVehicle(BLANK_VEHICLE)
         fetch(`/api/vehicles?customerId=${form.customerId}`)
             .then(r => r.json())
-            .then(j => setVehicles(j.data ?? []))
+            .then(j => {
+                const list = j.data ?? []
+                setVehicles(list)
+                // Auto-open add-vehicle form when customer has no vehicles
+                if (list.length === 0) setShowAddVehicle(true)
+            })
     }, [form.customerId])
 
     function toggleComplaint(c: string) {
@@ -129,6 +171,56 @@ export default function NewAppointmentPage() {
                 ? f.complaints.filter(x => x !== c)
                 : [...f.complaints, c],
         }))
+    }
+
+    async function handleSaveCustomer() {
+        setCustomerError('')
+        if (!newCustomer.name.trim()) { setCustomerError('Name is required'); return }
+        if (!newCustomer.phone.trim()) { setCustomerError('Phone is required'); return }
+        setSavingCustomer(true)
+        try {
+            const res = await fetch('/api/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newCustomer),
+            })
+            const json = await res.json()
+            if (!res.ok) { setCustomerError(json.error ?? 'Failed to save'); setSavingCustomer(false); return }
+            const c = json.data
+            setForm(f => ({ ...f, customerId: c._id, customerName: c.name }))
+            setCustomerSearch(c.name)
+            setCustomers([])
+            setShowAddCustomer(false)
+            setNewCustomer(BLANK_CUSTOMER)
+        } catch {
+            setCustomerError('Network error')
+        }
+        setSavingCustomer(false)
+    }
+
+    async function handleSaveVehicle() {
+        setVehicleError('')
+        if (!newVehicle.regNumber.trim()) { setVehicleError('Reg number is required'); return }
+        if (!newVehicle.brand.trim()) { setVehicleError('Brand is required'); return }
+        if (!newVehicle.model.trim()) { setVehicleError('Model is required'); return }
+        setSavingVehicle(true)
+        try {
+            const res = await fetch('/api/vehicles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...newVehicle, customerId: form.customerId }),
+            })
+            const json = await res.json()
+            if (!res.ok) { setVehicleError(json.error ?? 'Failed to save'); setSavingVehicle(false); return }
+            const v = json.data
+            setVehicles(prev => [v, ...prev])
+            setForm(f => ({ ...f, vehicleId: v._id, vehicleLabel: `${v.regNumber} · ${v.brand} ${v.model}` }))
+            setShowAddVehicle(false)
+            setNewVehicle(BLANK_VEHICLE)
+        } catch {
+            setVehicleError('Network error')
+        }
+        setSavingVehicle(false)
     }
 
     async function handleSubmit() {
@@ -172,10 +264,11 @@ export default function NewAppointmentPage() {
         setPhotoUploading(false)
     }
 
-    const STEP_LABELS = ['Customer', 'Vehicle', 'Date & Time', 'Service', 'Complaints', 'Vehicle Photos']
+    const STEP_LABELS = ['Customer', 'Vehicle', 'Date & Time', 'Service', 'Complaints', 'Photos']
     const totalSteps = 6
 
-    const cardStyle = { background: 'var(--surface-1)', border: '1px solid var(--border-dim)' }
+    const currentYear = new Date().getFullYear()
+    const years = Array.from({ length: currentYear - 1999 }, (_, i) => currentYear - i)
 
     return (
         <div className="max-w-lg mx-auto px-4 pb-10">
@@ -213,36 +306,39 @@ export default function NewAppointmentPage() {
                 </div>
             )}
 
-            {/* Step 1: Customer */}
+            {/* ── Step 1: Customer ── */}
             {step === 1 && (
                 <div className="space-y-4">
-                    <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                    <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: 'var(--text-muted)' }}>
                         Search Customer
                     </label>
                     <input
                         autoFocus
                         placeholder="Name or phone number..."
                         value={customerSearch}
-                        onChange={e => setCustomerSearch(e.target.value)}
+                        onChange={e => { setCustomerSearch(e.target.value); setShowAddCustomer(false) }}
                         className={inputCls}
                         style={inputStyle}
                     />
 
+                    {/* Selected customer banner */}
                     {form.customerId && (
                         <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
                             <div>
                                 <p className="text-sm font-semibold text-green-400">{form.customerName}</p>
-                                <p className="text-xs text-green-600">Customer selected</p>
+                                <p className="text-xs" style={{ color: '#4ade80' }}>Customer selected</p>
                             </div>
                             <button
-                                onClick={() => { setForm({ ...form, customerId: '', customerName: '', vehicleId: '', vehicleLabel: '' }); setCustomerSearch('') }}
-                                className="text-xs text-green-500 underline"
+                                onClick={() => { setForm({ ...form, customerId: '', customerName: '', vehicleId: '', vehicleLabel: '' }); setCustomerSearch(''); setShowAddCustomer(false) }}
+                                className="text-xs underline"
+                                style={{ color: '#4ade80' }}
                             >
                                 Change
                             </button>
                         </div>
                     )}
 
+                    {/* Search results */}
                     {customers.length > 0 && !form.customerId && (
                         <div className="rounded-xl overflow-hidden" style={cardStyle}>
                             {customers.map((c, i) => (
@@ -253,7 +349,7 @@ export default function NewAppointmentPage() {
                                         setCustomers([])
                                         setCustomerSearch(c.name)
                                     }}
-                                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors"
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors active:opacity-70"
                                     style={{ borderTop: i > 0 ? '1px solid var(--border-dim)' : 'none' }}
                                 >
                                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--surface-3)' }}>
@@ -268,12 +364,90 @@ export default function NewAppointmentPage() {
                         </div>
                     )}
 
+                    {/* No results — quick add */}
                     {customerSearch.length >= 2 && customers.length === 0 && !form.customerId && (
-                        <div className="text-center py-8">
-                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No customer found</p>
-                            <Link href="/customers/new" className="text-sm font-medium underline mt-1 inline-block" style={{ color: '#C8A44A' }}>
-                                Add new customer →
-                            </Link>
+                        <div>
+                            {!showAddCustomer ? (
+                                <div className="rounded-2xl p-5 text-center space-y-3" style={cardStyle}>
+                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto" style={{ background: 'var(--surface-2)' }}>
+                                        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
+                                            <path strokeLinecap="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No customer found</p>
+                                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                            &ldquo;{customerSearch}&rdquo; is not in your records
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowAddCustomer(true)}
+                                        className="w-full py-3 rounded-xl text-sm font-semibold btn-gold"
+                                        style={{ color: '#0D0D0D' }}
+                                    >
+                                        + Add New Customer
+                                    </button>
+                                </div>
+                            ) : (
+                                /* ── Inline quick-add customer form ── */
+                                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(200,164,74,0.06)', border: '1px solid rgba(200,164,74,0.2)' }}>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-bold" style={{ color: '#C8A44A' }}>New Customer</p>
+                                        <button onClick={() => setShowAddCustomer(false)} className="text-xs" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                                    </div>
+
+                                    {customerError && (
+                                        <p className="text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{customerError}</p>
+                                    )}
+
+                                    <div className="space-y-2.5">
+                                        <div>
+                                            <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Full Name *</label>
+                                            <input
+                                                autoFocus
+                                                placeholder="e.g. Mohammed Al Rashid"
+                                                value={newCustomer.name}
+                                                onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))}
+                                                className={inputCls}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Phone *</label>
+                                            <input
+                                                placeholder="+971 50 123 4567"
+                                                value={newCustomer.phone}
+                                                onChange={e => setNewCustomer(p => ({ ...p, phone: e.target.value }))}
+                                                type="tel"
+                                                className={inputCls}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Email (optional)</label>
+                                            <input
+                                                placeholder="email@example.com"
+                                                value={newCustomer.email}
+                                                onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))}
+                                                type="email"
+                                                className={inputCls}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleSaveCustomer}
+                                        disabled={savingCustomer}
+                                        className="w-full py-3.5 rounded-xl text-sm font-bold btn-gold disabled:opacity-50 flex items-center justify-center gap-2"
+                                        style={{ color: '#0D0D0D' }}
+                                    >
+                                        {savingCustomer ? (
+                                            <><span className="w-4 h-4 border-2 border-black/30 border-t-black/80 rounded-full animate-spin" />Saving...</>
+                                        ) : 'Save & Select Customer'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -288,25 +462,34 @@ export default function NewAppointmentPage() {
                 </div>
             )}
 
-            {/* Step 2: Vehicle */}
+            {/* ── Step 2: Vehicle ── */}
             {step === 2 && (
                 <div className="space-y-4">
-                    <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                        Select Vehicle
-                    </label>
-                    {vehicles.length === 0 ? (
-                        <div className="text-center py-8 rounded-2xl" style={cardStyle}>
-                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No vehicles for this customer</p>
-                            <a href={`/customers/${form.customerId}/vehicles/new`} className="text-sm font-medium underline mt-1 inline-block" style={{ color: '#C8A44A' }}>
-                                Add vehicle →
-                            </a>
-                        </div>
-                    ) : (
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                            Select Vehicle
+                        </label>
+                        {vehicles.length > 0 && !showAddVehicle && (
+                            <button
+                                onClick={() => setShowAddVehicle(true)}
+                                className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+                                style={{ background: 'rgba(200,164,74,0.1)', color: '#C8A44A', border: '1px solid rgba(200,164,74,0.25)' }}
+                            >
+                                + Add Vehicle
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Existing vehicles */}
+                    {vehicles.length > 0 && (
                         <div className="space-y-2">
                             {vehicles.map(v => (
                                 <button
                                     key={v._id}
-                                    onClick={() => setForm({ ...form, vehicleId: v._id, vehicleLabel: `${v.regNumber} · ${v.brand} ${v.model}` })}
+                                    onClick={() => {
+                                        setForm({ ...form, vehicleId: v._id, vehicleLabel: `${v.regNumber} · ${v.brand} ${v.model}` })
+                                        setShowAddVehicle(false)
+                                    }}
                                     className="w-full flex items-center gap-3 rounded-xl px-4 py-3.5 text-left transition-all"
                                     style={{
                                         background: form.vehicleId === v._id ? 'rgba(200,164,74,0.12)' : 'var(--surface-1)',
@@ -314,14 +497,16 @@ export default function NewAppointmentPage() {
                                     }}
                                 >
                                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: form.vehicleId === v._id ? 'rgba(200,164,74,0.2)' : 'var(--surface-3)' }}>
-                                        <span style={{ color: form.vehicleId === v._id ? '#C8A44A' : 'var(--text-muted)' }}>🚗</span>
+                                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke={form.vehicleId === v._id ? '#C8A44A' : 'var(--text-muted)'} strokeWidth={1.8}>
+                                            <path strokeLinecap="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 17H9m4 0h2m2 0h1a1 1 0 001-1v-4l-2-5H4l-1 3v6h1m14-6H5" />
+                                        </svg>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{v.regNumber}</p>
                                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{v.brand} {v.model} · {v.year}</p>
                                     </div>
                                     {form.vehicleId === v._id && (
-                                        <svg className="ml-auto" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#C8A44A" strokeWidth={2.5}>
+                                        <svg className="ml-auto shrink-0" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#C8A44A" strokeWidth={2.5}>
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                         </svg>
                                     )}
@@ -329,6 +514,121 @@ export default function NewAppointmentPage() {
                             ))}
                         </div>
                     )}
+
+                    {/* Quick-add vehicle form */}
+                    {showAddVehicle && (
+                        <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(200,164,74,0.06)', border: '1px solid rgba(200,164,74,0.2)' }}>
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-bold" style={{ color: '#C8A44A' }}>
+                                    {vehicles.length === 0 ? 'Add Vehicle' : 'New Vehicle'}
+                                </p>
+                                {vehicles.length > 0 && (
+                                    <button onClick={() => setShowAddVehicle(false)} className="text-xs" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                                )}
+                            </div>
+
+                            {vehicleError && (
+                                <p className="text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{vehicleError}</p>
+                            )}
+
+                            <div className="space-y-2.5">
+                                <div>
+                                    <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Reg Number *</label>
+                                    <input
+                                        autoFocus={vehicles.length === 0}
+                                        placeholder="e.g. DXB-A-12345"
+                                        value={newVehicle.regNumber}
+                                        onChange={e => setNewVehicle(p => ({ ...p, regNumber: e.target.value.toUpperCase() }))}
+                                        className={inputCls}
+                                        style={inputStyle}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Brand *</label>
+                                        <select
+                                            value={newVehicle.brand}
+                                            onChange={e => setNewVehicle(p => ({ ...p, brand: e.target.value }))}
+                                            className={inputCls}
+                                            style={inputStyle}
+                                        >
+                                            <option value="">Select...</option>
+                                            {CAR_BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Model *</label>
+                                        <input
+                                            placeholder="e.g. Camry"
+                                            value={newVehicle.model}
+                                            onChange={e => setNewVehicle(p => ({ ...p, model: e.target.value }))}
+                                            className={inputCls}
+                                            style={inputStyle}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Year *</label>
+                                        <select
+                                            value={newVehicle.year}
+                                            onChange={e => setNewVehicle(p => ({ ...p, year: Number(e.target.value) }))}
+                                            className={inputCls}
+                                            style={inputStyle}
+                                        >
+                                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Fuel Type</label>
+                                        <select
+                                            value={newVehicle.fuelType}
+                                            onChange={e => setNewVehicle(p => ({ ...p, fuelType: e.target.value }))}
+                                            className={inputCls}
+                                            style={inputStyle}
+                                        >
+                                            {FUEL_TYPES.map(f => <option key={f} value={f} className="capitalize">{f.charAt(0).toUpperCase() + f.slice(1)}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[11px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Color (optional)</label>
+                                    <input
+                                        placeholder="e.g. White"
+                                        value={newVehicle.color}
+                                        onChange={e => setNewVehicle(p => ({ ...p, color: e.target.value }))}
+                                        className={inputCls}
+                                        style={inputStyle}
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleSaveVehicle}
+                                disabled={savingVehicle}
+                                className="w-full py-3.5 rounded-xl text-sm font-bold btn-gold disabled:opacity-50 flex items-center justify-center gap-2"
+                                style={{ color: '#0D0D0D' }}
+                            >
+                                {savingVehicle ? (
+                                    <><span className="w-4 h-4 border-2 border-black/30 border-t-black/80 rounded-full animate-spin" />Saving...</>
+                                ) : 'Save & Select Vehicle'}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Empty state when no vehicles and form is not shown */}
+                    {vehicles.length === 0 && !showAddVehicle && (
+                        <div className="text-center py-8 rounded-2xl" style={cardStyle}>
+                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No vehicles registered</p>
+                            <button onClick={() => setShowAddVehicle(true)} className="text-sm font-medium underline mt-1" style={{ color: '#C8A44A' }}>
+                                Add vehicle
+                            </button>
+                        </div>
+                    )}
+
                     <button
                         onClick={() => { setError(''); setStep(3) }}
                         disabled={!form.vehicleId}
@@ -340,7 +640,7 @@ export default function NewAppointmentPage() {
                 </div>
             )}
 
-            {/* Step 3: Date & Time */}
+            {/* ── Step 3: Date & Time ── */}
             {step === 3 && (
                 <div className="space-y-5">
                     <div>
@@ -419,27 +719,25 @@ export default function NewAppointmentPage() {
                 </div>
             )}
 
-            {/* Step 4: Service Type */}
+            {/* ── Step 4: Service Type ── */}
             {step === 4 && (
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>Service Type</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {SERVICE_TYPES.map(s => (
-                                <button
-                                    key={s}
-                                    onClick={() => setForm({ ...form, serviceType: s })}
-                                    className="text-left px-3 py-3 rounded-xl text-sm font-medium transition-all"
-                                    style={{
-                                        background: form.serviceType === s ? 'rgba(200,164,74,0.15)' : 'var(--surface-1)',
-                                        border: `1px solid ${form.serviceType === s ? 'rgba(200,164,74,0.5)' : 'var(--border-dim)'}`,
-                                        color: form.serviceType === s ? '#C8A44A' : 'var(--text-secondary)',
-                                    }}
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
+                    <label className="text-xs font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>Service Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        {SERVICE_TYPES.map(s => (
+                            <button
+                                key={s}
+                                onClick={() => setForm({ ...form, serviceType: s })}
+                                className="text-left px-3 py-3 rounded-xl text-sm font-medium transition-all"
+                                style={{
+                                    background: form.serviceType === s ? 'rgba(200,164,74,0.15)' : 'var(--surface-1)',
+                                    border: `1px solid ${form.serviceType === s ? 'rgba(200,164,74,0.5)' : 'var(--border-dim)'}`,
+                                    color: form.serviceType === s ? '#C8A44A' : 'var(--text-secondary)',
+                                }}
+                            >
+                                {s}
+                            </button>
+                        ))}
                     </div>
 
                     <button
@@ -453,13 +751,11 @@ export default function NewAppointmentPage() {
                 </div>
             )}
 
-            {/* Step 5: Complaints + Confirm */}
+            {/* ── Step 5: Complaints ── */}
             {step === 5 && (
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>
-                            Customer Complaints
-                        </label>
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--text-muted)' }}>Customer Complaints</label>
                         <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Select all issues reported by the customer</p>
                         <div className="flex flex-wrap gap-2">
                             {COMPLAINT_CHIPS.map(c => {
@@ -506,7 +802,7 @@ export default function NewAppointmentPage() {
                         />
                     </div>
 
-                    {/* Summary */}
+                    {/* Appointment summary */}
                     <div className="rounded-2xl p-4 space-y-2 text-sm" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
                         <p className="font-semibold mb-3" style={{ color: '#C8A44A' }}>Appointment Summary</p>
                         {[
@@ -543,7 +839,7 @@ export default function NewAppointmentPage() {
                 </div>
             )}
 
-            {/* Step 6: Vehicle Photos + Confirm */}
+            {/* ── Step 6: Photos + Confirm ── */}
             {step === 6 && (
                 <div className="space-y-4">
                     <div>
@@ -552,7 +848,6 @@ export default function NewAppointmentPage() {
                         </label>
                         <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Capture current vehicle damage or condition (optional)</p>
 
-                        {/* Camera / Library buttons */}
                         <div className="flex gap-2 mb-3">
                             <button
                                 onClick={() => cameraRef.current?.click()}

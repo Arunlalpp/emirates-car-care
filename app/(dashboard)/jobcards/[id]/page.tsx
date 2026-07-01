@@ -210,9 +210,9 @@ function BookingPhotos({ photos }: { photos: string[] }) {
 }
 
 const ROLES = [
-    { key: 'mechanic',     label: 'Mechanic',      icon: '🔧' },
-    { key: 'painter',      label: 'Painter',        icon: '🎨' },
-    { key: 'patch_worker', label: 'Patch Worker',   icon: '🛠️' },
+    { key: 'mechanic', label: 'Mechanic', icon: '🔧' },
+    { key: 'painter', label: 'Painter', icon: '🎨' },
+    { key: 'patch_worker', label: 'Patch Worker', icon: '🛠️' },
 ]
 
 interface StaffEntry { role: string; userId: string; name: string }

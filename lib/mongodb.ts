@@ -11,9 +11,11 @@ export async function connectDB() {
     if (!cached.promise) {
         cached.promise = mongoose.connect(uri, {
             bufferCommands: false,
-            maxPoolSize: 10,
+            maxPoolSize: 5,          // serverless: each function has its own pool
+            minPoolSize: 0,          // don't hold idle connections
+            connectTimeoutMS: 5000,
             serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
+            family: 4,               // force IPv4 — avoids slow DNS on Vercel
         })
     }
     cached.conn = await cached.promise
